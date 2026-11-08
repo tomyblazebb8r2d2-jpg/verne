@@ -24,6 +24,8 @@ ICONOS = {
     "ritmo": '<path d="M3 17c3 0 3-8 6-8s3 6 6 6 3-4 6-4"/><circle cx="21" cy="11" r="0.6"/>',
     "lapiz": '<path d="M4 20l1.2-4.4L15.6 5.2a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.4 18.8z"/><path d="M13.8 7l3.2 3.2M4 20h7"/>',
     "ig": '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.2 6.8h.01"/>',
+    "tiktok": '<path d="M14 3.5v11.2a3.3 3.3 0 1 1-3.3-3.3"/><path d="M14 3.5c.4 2.6 2.2 4.4 5 4.6"/>',
+    "fb": '<path d="M14.5 8.5H13a1.5 1.5 0 0 0-1.5 1.5v10.5"/><path d="M9 13h5.5"/><rect x="3.5" y="3.5" width="17" height="17" rx="4"/>',
 }
 WA_SVG = ('<svg viewBox="0 0 24 24" aria-hidden="true" class="ico wa"><path d="M12 3.2a8.7 8.7 0 0 0-7.5 13.1L3.3 20.7l4.5-1.2A8.7 8.7 0 1 0 12 3.2z"/>'
           '<path class="wa-fono" d="M9.1 8.1c.2-.4.4-.4.7-.4h.5c.2 0 .4 0 .6.4l.8 1.9c.1.2 0 .4-.1.6l-.5.6c-.1.2-.2.3 0 .6.5.9 1.6 2 2.6 2.5.3.2.4.1.6-.1l.6-.7c.2-.2.4-.2.6-.1l1.8.9c.2.1.4.2.4.4 0 .6-.3 1.4-.9 1.7-.6.4-1.9.6-3.6-.2-1.9-.9-3.3-2.6-3.9-3.7-.6-1-.6-2-.3-2.6z"/></svg>')
@@ -35,14 +37,18 @@ def icono(nombre: str) -> str:
     return f'<svg viewBox="0 0 24 24" aria-hidden="true" class="ico">{ICONOS[nombre]}</svg>'
 
 
-html = (AQUI / "plantilla.html").read_text(encoding="utf-8")
 logo_h = (AQUI / "assets/logo-horizontal.svg").read_text()
 logo_h = re.sub(r'<svg xmlns="[^"]+" ', '<svg class="logo-h" aria-hidden="true" focusable="false" ', logo_h, count=1)
 logo_h = logo_h.replace(' fill="#2F4047"', "", 1)
-html = html.replace("{{LOGO_H}}", logo_h)
-html = html.replace("{{LOGO_ANIM}}", (AQUI / "assets/logo-animado.svg").read_text())
-html = re.sub(r"\{\{I:(\w+)\}\}", lambda m: icono(m.group(1)), html)
-html = html.replace("{{WA_ASESORIA}}", WA_ASESORIA).replace("{{WA}}", WA).replace("{{URL}}", URL)
-assert "{{" not in html, re.findall(r"\{\{[^}]+\}\}", html)
-(AQUI / "index.html").write_text(html, encoding="utf-8")
-print("index.html:", len(html), "bytes")
+logo_anim = (AQUI / "assets/logo-animado.svg").read_text()
+
+PAGINAS = {"plantilla.html": "index.html", "curso.plantilla.html": "curso.html",
+           "diagnostico.plantilla.html": "diagnostico.html"}
+for origen, destino in PAGINAS.items():
+    html = (AQUI / origen).read_text(encoding="utf-8")
+    html = html.replace("{{LOGO_H}}", logo_h).replace("{{LOGO_ANIM}}", logo_anim)
+    html = re.sub(r"\{\{I:(\w+)\}\}", lambda m: icono(m.group(1)), html)
+    html = html.replace("{{WA_ASESORIA}}", WA_ASESORIA).replace("{{WA}}", WA).replace("{{URL}}", URL)
+    assert "{{" not in html, (origen, re.findall(r"\{\{[^}]+\}\}", html))
+    (AQUI / destino).write_text(html, encoding="utf-8")
+    print(destino + ":", len(html), "bytes")

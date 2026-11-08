@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnóstico de ingreso a prepa (UNAM–IPN) | Verne Study Club</title>
+<meta name="description" content="Diagnóstico gratuito de 80 preguntas con las 10 asignaturas del examen de ingreso a la Educación Media Superior UNAM–IPN. Resultados por asignatura al instante.">
+<meta name="theme-color" content="#20495B">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="{{URL}}/diagnostico.html">
+<link rel="preload" href="fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<meta property="og:type" content="website">
+<meta property="og:locale" content="es_MX">
+<meta property="og:title" content="Diagnóstico de ingreso a prepa | Verne Study Club">
+<meta property="og:description" content="80 preguntas de las 10 asignaturas del examen UNAM–IPN. Gratis, con resultados al instante.">
+<meta property="og:image" content="{{URL}}/assets/og.png">
+<link rel="stylesheet" href="estilos.css">
+<link rel="stylesheet" href="diagnostico.css">
+<script src="diagnostico.js" defer></script>
+<script src="diagnostico-preguntas.js" defer></script>
+</head>
+<body class="diag">
+<header class="cabecera">
+  <div class="envoltura cabecera__fila">
+    <a class="cabecera__logo" href="./">{{LOGO_H}}<span class="sr">Verne Study Club, inicio</span></a>
+    <nav class="menu" aria-label="Secciones">
+      <a href="./">Inicio</a>
+      <a href="curso.html">Curso 2027</a>
+      <a href="./#servicios">Regularización</a>
+    </nav>
+    <a class="boton boton--chico" href="{{WA}}" target="_blank" rel="noopener">{{I:wa}}<span>WhatsApp</span></a>
+  </div>
+</header>
+
+<main class="envoltura diag__main">
+
+  <!-- Inicio -->
+  <section id="inicio" aria-labelledby="t-inicio">
+    <div class="inicio">
+      <div class="inicio__texto">
+        <p class="pastilla">Gratis · sin calificación oficial</p>
+        <h1 id="t-inicio">Diagnóstico de ingreso a prepa</h1>
+        <p class="inicio__intro">80 preguntas de las 10 asignaturas del examen de ingreso a la Educación Media Superior UNAM–IPN, con base en los temas de su guía oficial 2026. Al terminar ves tus resultados por asignatura y los temas que conviene reforzar.</p>
+        <ul class="datos">
+          <li>{{I:check}}80 preguntas en orden revuelto, 4 opciones cada una</li>
+          <li>{{I:reloj}}Unos 100 minutos (el examen real: 128 preguntas en 3 horas)</li>
+          <li>{{I:pantalla}}Tu avance se guarda en este dispositivo: puedes pausar y volver</li>
+        </ul>
+      </div>
+      <div class="inicio__caja">
+        <div id="continuar" class="continuar" hidden>
+          <p>Tienes un diagnóstico sin terminar de <strong id="continuar-nombre"></strong>.</p>
+          <button id="btn-continuar" class="boton" type="button">Continuar donde me quedé</button>
+          <p class="continuar__o">o empieza uno nuevo:</p>
+        </div>
+        <form id="form-inicio">
+          <label for="nombre">Tu nombre</label>
+          <input id="nombre" name="nombre" type="text" autocomplete="name" placeholder="Escribe tu nombre" required>
+          <button class="boton boton--menta" type="submit">Comenzar diagnóstico</button>
+        </form>
+        <p class="nota">Tus respuestas no se envían a ningún lado. Al final tú decides si nos mandas tu resultado por WhatsApp.</p>
+      </div>
+    </div>
+    <div class="campos-info">
+      <h2>Qué evalúa</h2>
+      <div class="campos-info__rejilla">
+        <div><h3>Lenguajes</h3><p>Habilidad verbal · Español</p></div>
+        <div><h3>Saberes y pensamiento científico</h3><p>Habilidad matemática · Matemáticas · Biología · Física · Química</p></div>
+        <div><h3>Ética, naturaleza y sociedades</h3><p>Historia · Geografía · Formación cívica y ética</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Examen -->
+  <section id="examen" hidden aria-live="polite">
+    <div class="examen__barra">
+      <div>
+        <p id="num" class="examen__num"></p>
+        <p id="asig" class="examen__asig"></p>
+      </div>
+      <div class="examen__reloj">{{I:reloj}}<span id="tiempo">0:00</span></div>
+    </div>
+    <div class="progreso" aria-hidden="true"><span id="barra"></span></div>
+    <p id="contestadas" class="examen__contestadas"></p>
+
+    <article class="tarjeta">
+      <details id="texto" class="texto" open hidden>
+        <summary>Lee el texto</summary>
+        <div></div>
+      </details>
+      <div id="pregunta" class="tarjeta__pregunta"></div>
+      <div id="opciones" class="opciones" role="radiogroup" aria-label="Opciones de respuesta"></div>
+    </article>
+
+    <div class="examen__nav">
+      <button id="anterior" class="boton boton--claro" type="button">Anterior</button>
+      <button id="siguiente" class="boton" type="button">Siguiente</button>
+    </div>
+
+    <details id="mapa" class="mapa">
+      <summary>Ver todas las preguntas</summary>
+      <div id="mapa-rejilla" class="mapa__rejilla"></div>
+      <button id="btn-terminar" class="boton boton--claro" type="button">Terminar y ver resultados</button>
+    </details>
+    <p class="nota nota--centro">Atajos: teclas A, B, C y D para responder; flechas para moverte.</p>
+  </section>
+
+  <!-- Resultado -->
+  <section id="resultado" hidden aria-labelledby="t-res">
+    <div class="res__cabeza">
+      <img src="assets/avatar.webp" width="560" height="940" alt="" class="res__avatar">
+      <div>
+        <p class="pastilla">Resultado de <span id="r-nombre"></span></p>
+        <h1 id="t-res" class="res__total"><span id="r-total"></span> <small id="r-de"></small></h1>
+        <p id="r-pct" class="res__pct"></p>
+        <div class="acciones">
+          <a id="r-whatsapp" class="boton boton--menta" href="#" target="_blank" rel="noopener">{{I:wa}}<span>Enviar mi resultado por WhatsApp</span></a>
+          <a class="boton boton--claro" href="curso.html">Ver el curso de ingreso</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="res__rejilla">
+      <div class="res__panel">
+        <h2>Por campo</h2>
+        <ul id="r-campos" class="filas"></ul>
+        <h2>Por asignatura</h2>
+        <ul id="r-asignaturas" class="filas"></ul>
+      </div>
+      <div class="res__panel">
+        <h2>Temas a reforzar</h2>
+        <ul id="r-temas" class="temas"></ul>
+      </div>
+    </div>
+
+    <details class="revision">
+      <summary>Revisar todas mis respuestas</summary>
+      <ol id="r-revision"></ol>
+    </details>
+    <p class="nota nota--centro"><button id="otra-vez" class="enlace" type="button">Hacer el diagnóstico otra vez</button></p>
+  </section>
+</main>
+
+<footer class="pie">
+  <div class="envoltura pie__fila">
+    <div>
+      <p class="pie__llamado">Reserva tu lugar</p>
+      <a class="pie__telefono" href="{{WA}}" target="_blank" rel="noopener">55 8409 1167</a>
+    </div>
+    <div class="pie__marca">{{LOGO_H}}</div>
+  </div>
+  <div class="envoltura pie__legal">
+    <p>Diagnóstico de práctica elaborado por Verne Study Club con base en los temas de la Guía IPN–UNAM 2026. No es un examen oficial.</p>
+    <p>© 2026 Verne Study Club</p>
+  </div>
+</footer>
+</body>
+</html>

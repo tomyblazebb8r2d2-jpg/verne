@@ -116,6 +116,8 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .logo-animado path { fill: var(--logo); }
 .logo-animado .orbita { fill: none; stroke: var(--menta); stroke-width: 9; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0; }
 .logo-animado .electron { fill: var(--logo); }
+.logo-animado .orbita-fija, .logo-h .orbita-fija { stroke: var(--logo); }
+.pie__marca .logo-h .orbita-fija { stroke: #fff; }
 .avatar { position: absolute; width: 28%; height: auto; left: -24%; top: 1%; filter: drop-shadow(0 10px 14px rgba(27, 59, 72, 0.16)); }
 
 /* ---------- Cifras ---------- */
@@ -284,4 +286,61 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
     font-weight: 800; text-decoration: none; box-shadow: 0 8px 24px rgba(27, 59, 72, 0.3);
   }
   .flotante .ico { width: 1.3em; height: 1.3em; }
+}
+
+/* ---------- Añadidos: tarifas, equipo, redes y página del curso ---------- */
+.nota { font-size: 0.92rem; color: var(--suave); margin-top: 1rem; }
+.tarifas { margin: 0; display: grid; gap: 0.5rem; }
+.tarifas > div { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; border-bottom: 1px solid var(--linea); padding-bottom: 0.45rem; }
+.tarifas dt { font-weight: 700; color: var(--suave); }
+.tarifas dd { margin: 0; font-weight: 700; color: var(--suave); white-space: nowrap; }
+.tarifas dd span { font-size: 1.9rem; font-weight: 900; color: var(--tinta); letter-spacing: -0.02em; margin-right: 0.15rem; }
+.servicio__nota { font-size: 0.92rem; color: var(--suave); background: var(--caja); border-radius: 10px; padding: 0.6rem 0.8rem; }
+.curso__mas { margin-top: 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; background: #fff; border: 1px solid var(--linea); border-radius: 16px; padding: 1.2rem 1.4rem; }
+.curso__mas p { font-weight: 700; max-width: 52ch; }
+
+.equipo { grid-template-columns: 0.55fr 1.45fr; }
+.equipo__figura img { width: min(100%, 220px); height: auto; margin-inline: auto; filter: drop-shadow(0 10px 14px rgba(27, 59, 72, 0.16)); }
+.equipo__intro { margin-top: 1rem; font-size: var(--t-1); color: var(--suave); max-width: 50ch; }
+.equipo .persona { display: block; margin-top: 1.6rem; background: var(--papel); border: 1px solid var(--linea); border-left: 5px solid var(--menta); border-radius: 14px; padding: 1.1rem 1.3rem; }
+.equipo .persona h3 { font-size: var(--t-1); }
+
+.redes { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.4rem; }
+.redes a { display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; font-weight: 700; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.35); border-radius: 999px; padding: 0.5rem 1rem; }
+.redes a:hover { background: #fff; color: var(--tinta); border-color: #fff; }
+.redes .ico { width: 1.25rem; height: 1.25rem; }
+
+.portada--curso { padding-bottom: clamp(2.5rem, 5vw, 4rem); }
+.curso-portada { display: flex; align-items: center; justify-content: center; gap: clamp(1rem, 3vw, 2.5rem); text-align: left; }
+.curso-portada__avatar { width: clamp(90px, 12vw, 150px); height: auto; filter: drop-shadow(0 10px 14px rgba(27, 59, 72, 0.16)); }
+.curso-portada h1 { font-size: var(--t-4); font-weight: 900; margin-top: 0.8rem; line-height: 1.05; }
+.lista-check--grande li { font-size: 1.08rem; }
+.caja-metodo { background: var(--petroleo); color: #fff; border-radius: 20px; padding: 1.8rem; display: grid; gap: 0.8rem; align-content: start; }
+.caja-metodo p { color: rgba(255, 255, 255, 0.85); }
+.caja-metodo .boton--claro { color: #fff; border-color: rgba(255, 255, 255, 0.5); justify-self: start; }
+.caja-metodo .boton--claro:hover { background: #fff; color: var(--tinta); }
+.cifras-examen { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 2.2rem; }
+.cifras-examen li { background: var(--petroleo); color: #fff; border-radius: 16px; padding: 1.3rem; text-align: center; display: grid; }
+.cifras-examen strong { font-size: 2.6rem; font-weight: 900; color: var(--menta); line-height: 1.1; }
+.temario__intro { margin-top: 0.8rem; color: var(--suave); font-size: var(--t-1); }
+.campo { margin-top: 2.2rem; display: inline-block; font-size: 1.05rem; background: var(--menta); border-radius: 8px; padding: 0.2rem 0.8rem; }
+.asignaturas { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.8rem; margin-top: 1rem; align-items: start; }
+.asignaturas details { background: var(--papel); border: 1px solid var(--linea); border-radius: 14px; }
+.asignaturas summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; padding: 0.95rem 1.2rem; font-weight: 800; }
+.asignaturas summary::-webkit-details-marker { display: none; }
+.asignaturas summary::after { content: "+"; color: var(--menta-oscura); font-size: 1.4rem; line-height: 1; transition: transform 0.2s; }
+.asignaturas details[open] summary::after { transform: rotate(45deg); }
+.asignaturas ul { list-style: disc; padding: 0 1.2rem 1rem 2.4rem; color: var(--suave); display: grid; gap: 0.3rem; }
+.pasos--tres { grid-template-columns: repeat(3, 1fr); }
+.diagnostico--curso { margin-top: 3rem; }
+
+@media (max-width: 1020px) {
+  .equipo { grid-template-columns: 1fr; }
+  .equipo__figura img { width: 150px; margin-inline: 0; }
+  .cifras-examen { grid-template-columns: repeat(2, 1fr); }
+  .pasos--tres { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .curso-portada { flex-direction: column; align-items: flex-start; }
+  .tarifas > div { flex-direction: column; gap: 0; }
 }

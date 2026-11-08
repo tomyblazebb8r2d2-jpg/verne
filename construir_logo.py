@@ -30,6 +30,12 @@ def pieza(nombre, clase="", extra=""):
 cx, cy = ORB["centro"]
 # --- logo vertical animado (viewBox recortado al logo) ---
 letras = "".join(f'<g class="letra" style="--i:{i}">{pieza(f"letra-{i}")}</g>' for i in range(1, 6))
+# Órbitas continuas en el color del logo, encima del trazo: tapan las muescas que dejó quitar los
+# electrones del original y los bordes dentados del trazado (las elipses son las ajustadas al original).
+fijas = "".join(
+    f'<ellipse class="orbita-fija" cx="{cx}" cy="{cy}" rx="{o["rx"]}" ry="{o["ry"]}" '
+    f'transform="rotate({o["angulo"]} {cx} {cy})" fill="none" stroke-width="{ORB["grosor"]}"/>'
+    for o in ORB["orbitas"])
 orbitas = "".join(
     f'<ellipse class="orbita" cx="{cx}" cy="{cy}" rx="{o["rx"]}" ry="{o["ry"]}" '
     f'transform="rotate({o["angulo"]} {cx} {cy})" pathLength="1" style="--i:{i}"/>'
@@ -41,7 +47,7 @@ datos = json.dumps({"centro": ORB["centro"], "orbitas": ORB["orbitas"]})
 vb = "255 150 512 692"
 animado = (f'<svg class="logo-animado" viewBox="{vb}" role="img" aria-label="Verne Study Club" '
            f'data-orbitas=\'{datos}\'>'
-           f'<g class="emblema">{pieza("emblema-sin-electrones")}{orbitas}{electrones}</g>'
+           f'<g class="emblema">{pieza("emblema-sin-electrones")}{fijas}{orbitas}{electrones}</g>'
            f'<g class="letras">{letras}</g><g class="lema">{pieza("study-club")}</g></svg>')
 (SAL / "logo-animado.svg").write_text(animado)
 
@@ -54,7 +60,7 @@ dy_txt = e["y"] + e["alto"] * esc / 2 - (l1["y"] + alto_txt / 2)
 txt = "".join(pieza(f"letra-{i}") for i in range(1, 6)) + pieza("study-club")
 ancho_total = e["ancho"] * esc + 40 + (sc["x"] + sc["ancho"] - l1["x"]) + 10
 horiz = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{e["x"] - 4} {e["y"] - 4} {ancho_total + 8} {e["alto"] * esc + 8}" fill="#2F4047">'
-         f'<g transform="translate({e["x"]} {e["y"]}) scale({esc}) translate({-e["x"]} {-e["y"]})">{pieza("emblema")}</g>'
+         f'<g transform="translate({e["x"]} {e["y"]}) scale({esc}) translate({-e["x"]} {-e["y"]})">{pieza("emblema")}{fijas.replace('fill="none"', 'fill="none" stroke="#2F4047"')}</g>'
          f'<g transform="translate({dx_txt} {dy_txt})">{txt}</g></svg>')
 (SAL / "logo-horizontal.svg").write_text(horiz)
 

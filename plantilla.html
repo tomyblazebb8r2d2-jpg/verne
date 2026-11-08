@@ -29,7 +29,7 @@
       "logo": "{{URL}}/assets/favicon.svg",
       "telephone": "+52 55 8409 1167",
       "address": { "@type": "PostalAddress", "addressLocality": "Puebla", "addressCountry": "MX" },
-      "sameAs": ["https://www.instagram.com/verne_study_club/"]
+      "sameAs": ["https://www.instagram.com/verne_study_club/", "https://www.tiktok.com/@verne_study", "https://www.facebook.com/profile.php?id=61568789567806"]
     },
     {
       "@type": "Course",
@@ -53,7 +53,8 @@
     <nav class="menu" aria-label="Secciones">
       <a href="#metodo">Método</a>
       <a href="#servicios">Servicios</a>
-      <a href="#curso">Curso 2027</a>
+      <a href="curso.html">Curso 2027</a>
+      <a href="diagnostico.html">Diagnóstico</a>
       <a href="#equipo">Equipo</a>
       <a href="#contacto">Contacto</a>
     </nav>
@@ -132,14 +133,17 @@
       <div class="servicios">
         <article class="servicio">
           <h3>Regularización 1 a 1</h3>
-          <p class="servicio__precio"><span>$180</span> MXN por hora</p>
+          <dl class="tarifas">
+            <div><dt>Primaria, secundaria y prepa</dt><dd><span>$180</span> MXN por hora</dd></div>
+            <div><dt>Universidad</dt><dd><span>$200</span> MXN por hora</dd></div>
+          </dl>
           <ul class="lista-check">
             <li>{{I:check}}Clase individual y totalmente personalizada</li>
             <li>{{I:check}}Adaptada al temario escolar del alumno</li>
             <li>{{I:check}}Sesiones de 1 o 2 horas, una o más veces por semana</li>
             <li>{{I:check}}Notas de la clase en PDF, material digital y ejercicios</li>
-            <li>{{I:check}}Primaria, secundaria, preparatoria y universidad</li>
           </ul>
+          <p class="servicio__nota">En universidad revisamos primero los temas de tu materia para confirmar que podemos ayudarte.</p>
           <a class="boton" href="{{WA_ASESORIA}}" target="_blank" rel="noopener">{{I:wa}}<span>Pedir informes</span></a>
         </article>
         <article class="servicio servicio--curso">
@@ -152,7 +156,7 @@
             <li>{{I:check}}Enero a junio, 80 horas de clase</li>
             <li>{{I:check}}Repaso intensivo final incluido</li>
           </ul>
-          <a class="boton boton--menta" href="#curso">Ver detalles del curso</a>
+          <a class="boton boton--menta" href="curso.html">Ver todo sobre el curso</a>
         </article>
       </div>
     </div>
@@ -183,28 +187,10 @@
           <a class="boton boton--menta" href="{{WA}}" target="_blank" rel="noopener">{{I:wa}}<span>Quiero inscribirme</span></a>
         </div>
       </div>
-      <p class="planes">Diferentes planes de inscripción: <strong>$550 al mes</strong> o <strong>$2,500 en un solo pago</strong>.</p>
-
-      <div class="curso__dos">
-        <div>
-          <h3>Los 4 bloques del examen</h3>
-          <ol class="bloques">
-            <li>Matemáticas y Ciencia de Datos</li>
-            <li>Ciencias y Tecnología</li>
-            <li>Comunicación</li>
-            <li>Sociedad y Ciudadanía</li>
-          </ol>
-        </div>
-        <div>
-          <h3>Qué incluye</h3>
-          <ul class="lista-check">
-            <li>{{I:check}}Material digital en PDF</li>
-            <li>{{I:check}}Notas de clase en PDF</li>
-            <li>{{I:check}}Examen diagnóstico gratis</li>
-            <li>{{I:check}}Simulacros de exámenes</li>
-            <li>{{I:check}}Repaso intensivo final</li>
-          </ul>
-        </div>
+      <p class="planes">Aparta tu lugar con <strong>$550</strong> (se descuenta de tu pago). Después eliges: <strong>$550 al mes</strong> o <strong>$2,500 en un solo pago</strong>.</p>
+      <div class="curso__mas">
+        <p>El temario completo de las 10 asignaturas del examen UNAM–IPN, qué incluye y cómo inscribirte.</p>
+        <a class="boton" href="curso.html">Toda la información del curso</a>
       </div>
     </div>
   </section>
@@ -213,8 +199,8 @@
   <section class="seccion seccion--corta" id="diagnostico" aria-labelledby="titulo-diagnostico">
     <div class="envoltura diagnostico">
       <div>
-        <h2 id="titulo-diagnostico">Empieza con el diagnóstico gratis</h2>
-        <p>20 preguntas de álgebra, de 15 a 20 minutos. No tiene calificación: sirve para saber en qué reforzar. Al terminar mandas tu resultado por WhatsApp con un toque.</p>
+        <h2 id="titulo-diagnostico">Haz el diagnóstico gratis</h2>
+        <p>80 preguntas de las 10 asignaturas del examen de ingreso UNAM–IPN, con gráficas y preguntas revueltas. Al terminar ves tus resultados por asignatura y los temas que te conviene reforzar.</p>
       </div>
       <a class="boton" href="diagnostico.html">Hacer el diagnóstico</a>
     </div>
@@ -236,15 +222,18 @@
   <!-- Equipo -->
   <section class="seccion seccion--equipo" id="equipo" aria-labelledby="titulo-equipo">
     <div class="envoltura equipo">
-      <h2 id="titulo-equipo">Quién imparte las clases</h2>
-      <article class="persona">
-        <div class="persona__monograma" aria-hidden="true">AD</div>
-        <div>
+      <div class="equipo__figura">
+        <img src="assets/avatar.webp" srcset="assets/avatar.webp 1x, assets/avatar@2x.webp 2x" width="560" height="940" alt="El muñeco científico de Verne Study Club" loading="lazy">
+      </div>
+      <div class="equipo__texto">
+        <h2 id="titulo-equipo">Somos un equipo de asesores</h2>
+        <p class="equipo__intro">Detrás de cada clase hay un equipo de asesores que comparte el Método Verne: explicar el porqué de cada tema y acompañar al alumno hasta que lo entienda.</p>
+        <article class="persona">
           <h3>Arturo Delgado Casas</h3>
           <p class="persona__rol">Fundador y asesor</p>
-          <p>Estudiante de Actuaría en la BUAP y fundador de Verne Study Club. Lleva 2 años dando asesorías y ha acompañado a más de 100 alumnos.</p>
-        </div>
-      </article>
+          <p>Estudiante de Actuaría en la BUAP. Lleva 2 años dando asesorías y, junto con el equipo, ha acompañado a más de 100 alumnos.</p>
+        </article>
+      </div>
     </div>
   </section>
 
@@ -267,11 +256,11 @@
         </details>
         <details>
           <summary>¿Cómo me inscribo?</summary>
-          <p>Escríbenos por <a href="{{WA}}" target="_blank" rel="noopener">WhatsApp al 55 8409 1167</a>. Para regularización, dinos la materia y el grado; para el curso, te apartamos un lugar.</p>
+          <p>Escríbenos por <a href="{{WA}}" target="_blank" rel="noopener">WhatsApp al 55 8409 1167</a>. Para regularización, dinos la materia y el grado. Para el curso, apartas tu lugar con $550, que se descuentan de tu pago.</p>
         </details>
         <details>
           <summary>¿Cuánto cuesta?</summary>
-          <p>La regularización 1 a 1 cuesta $180 MXN por hora. El Curso de Ingreso a Prepa 2027 cuesta $2,500 MXN en un solo pago, o $550 al mes.</p>
+          <p>La regularización 1 a 1 cuesta $180 MXN por hora de primaria a prepa, y $200 MXN por hora en universidad. El Curso de Ingreso a Prepa 2027 cuesta $2,500 MXN en un solo pago, o $550 al mes.</p>
         </details>
       </div>
     </div>
@@ -285,8 +274,12 @@
         <p>Escríbenos para conocer horarios y disponibilidad.</p>
         <div class="acciones">
           <a class="boton boton--menta" href="{{WA}}" target="_blank" rel="noopener">{{I:wa}}<span>Escríbenos por WhatsApp</span></a>
-          <a class="boton boton--borde" href="https://www.instagram.com/verne_study_club/" target="_blank" rel="noopener">{{I:ig}}<span>@verne_study_club</span></a>
         </div>
+        <ul class="redes" aria-label="Redes sociales">
+          <li><a href="https://www.instagram.com/verne_study_club/" target="_blank" rel="noopener">{{I:ig}}<span>Instagram</span></a></li>
+          <li><a href="https://www.tiktok.com/@verne_study" target="_blank" rel="noopener">{{I:tiktok}}<span>TikTok</span></a></li>
+          <li><a href="https://www.facebook.com/profile.php?id=61568789567806" target="_blank" rel="noopener">{{I:fb}}<span>Facebook</span></a></li>
+        </ul>
       </div>
       <div class="horario">
         <h3>Horarios de atención</h3>

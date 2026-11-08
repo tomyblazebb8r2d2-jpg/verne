@@ -30,14 +30,26 @@
   let visible = true;
   let previo = null;
   let reloj = 0;
+  let giro = 0;
+  let velocidad = 0;
+  let objetivo = 1;
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; }).observe(svg);
+  // Al pasar el cursor (o tocar) el logo, los electrones aceleran; al salir vuelven a su ritmo.
+  const zona = svg.closest(".portada__marca") || svg;
+  zona.addEventListener("pointerenter", () => { objetivo = 4; });
+  zona.addEventListener("pointerleave", () => { objetivo = 1; });
+  zona.addEventListener("pointerdown", () => { objetivo = 4; setTimeout(() => { objetivo = 1; }, 1600); });
   const cuadro = (ms) => {
-    if (previo !== null && visible && !document.hidden) reloj += (ms - previo) / 1000;
+    const dt = previo === null ? 0 : Math.min(0.05, (ms - previo) / 1000);
     previo = ms;
-    // Arranque suave: aceleran desde cero en el primer segundo tras aparecer.
-    const dt = Math.max(0, reloj - INICIO_S);
-    const giro = dt < 1 ? (dt * dt) / 2 : dt - 0.5;
-    colocar(giro);
+    if (visible && !document.hidden) {
+      reloj += dt;
+      // Arranque suave cuando aparecen; después la velocidad sigue al objetivo con inercia.
+      const meta = reloj < INICIO_S ? 0 : objetivo;
+      velocidad += (meta - velocidad) * Math.min(1, dt * 2.5);
+      giro += velocidad * dt;
+      colocar(giro);
+    }
     requestAnimationFrame(cuadro);
   };
   requestAnimationFrame(cuadro);
