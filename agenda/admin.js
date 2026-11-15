@@ -71,9 +71,10 @@ async function cargaGoogle() {
   try { Object.assign(G, { error: null }, await api.funcion('gcal', { accion: 'estado' })); } catch (e) { G.conectado = false; G.error = e.message; }
   G.listo = true;
 }
-/** Manda a Google el estado actual de una clase suelta. Si Google falla, la app ya guardó: solo avisa. */
+/** Manda a Google el estado actual de una clase. Si Google falla, la app ya guardó: solo avisa. */
 async function sincroniza(c) {
-  if (!G.conectado || c.serie_id) return null;
+  if (!G.conectado) return null;
+  if (c.serie_id && !c.google_event_id && !por('series', c.serie_id)?.google_event_id) return null;   // serie sin enlazar
   try {
     const r = await api.funcion('gcal', { accion: 'sincronizar_clase', clase_id: c.id });
     if ('evento' in r) Object.assign(c, { google_event_id: r.evento, meet: r.meet });
@@ -83,9 +84,24 @@ async function sincroniza(c) {
     return { accion: 'error' };
   }
 }
-const textoGoogle = (r, base) => (!r || r.accion === 'error' ? null
-  : `${base} · Google Calendar ${G.calendario === 'prueba' ? '(calendario de prueba) ' : ''}actualizado`);
-const avisaCon = (r, base) => { if (!r) avisa(base); else if (r.accion !== 'error') avisa(textoGoogle(r, base)); };
+/** Hace que Google refleje la serie. Sin `crear`, una serie que no está enlazada no se toca (evita duplicados). */
+async function sincronizaSerie(s, crear = false) {
+  if (!G.conectado || (!s.google_event_id && !crear)) return null;
+  try {
+    const r = await api.funcion('gcal', { accion: 'sincronizar_serie', serie_id: s.id, crear });
+    if ('evento' in r) Object.assign(s, { google_event_id: r.evento, meet: r.meet, google_firma: r.firma ?? null });
+    return r;
+  } catch (e) {
+    avisa(`Guardado en la app, pero Google Calendar falló: ${e.message}`, true);
+    return { accion: 'error' };
+  }
+}
+function avisaCon(r, base) {
+  if (!r || r.accion === 'omitida' || r.accion === 'nada') return avisa(base);
+  if (r.accion === 'error') return undefined;
+  if (r.accion === 'sin_evento') return avisa(`${base}, pero esa fecha no existe en la serie de Google Calendar`, true);
+  return avisa(`${base} · Google Calendar ${G.calendario === 'prueba' ? '(calendario de prueba) ' : ''}actualizado`);
+}
 
 // ───────────── Diálogos ─────────────
 function abre(contenido) {
@@ -326,7 +342,9 @@ function fichaClase(c) {
     if (r && r.accion !== 'error') await anota('Clase enviada a Google Calendar', { alumno: alumno.nombre, fecha: c.fecha, calendario: G.calendario });
     avisaCon(r, 'Clase enviada');
   });
-  const enGoogle = G.conectado && !c.serie_id && c.estado !== 'cancelada';
+  const serieDeClase = c.serie_id ? por('series', c.serie_id) : null;
+  const yaEnGoogle = !!c.google_event_id || !!serieDeClase?.google_event_id;
+  const enGoogle = G.conectado && c.estado !== 'cancelada' && (!c.serie_id || yaEnGoogle);
 
   const estados = { programada: 'Programada', dada: 'Dada', cancelada: 'Cancelada', recorrida: 'Recorrida' };
   abre(h('div', { class: 'cuerpo' },
@@ -340,7 +358,7 @@ function fichaClase(c) {
         pago ? h('span', { class: 'etiqueta ok', style: 'margin-left:.5rem' }, `Pagada ${L.pesos(pago.monto)}`) : null,
         recargo ? h('span', { class: 'etiqueta mal', style: 'margin-left:.5rem' }, `Recargo ${L.pesos(recargo.monto)}`) : null),
       c.meet ? [h('dt', {}, 'Meet'), h('dd', {}, h('a', { href: c.meet, target: '_blank', rel: 'noopener' }, c.meet.replace('https://', '')))] : null,
-      enGoogle ? [h('dt', {}, 'Google'), h('dd', {}, c.google_event_id
+      enGoogle ? [h('dt', {}, 'Google'), h('dd', {}, yaEnGoogle
         ? h('span', { class: 'etiqueta ok' }, G.calendario === 'prueba' ? 'En el calendario de prueba' : 'En tu Google Calendar')
         : h('span', { class: 'etiqueta falta' }, 'Aún no está en Google Calendar'))] : null,
       c.nota ? [h('dt', {}, 'Nota'), h('dd', {}, c.nota)] : null),
@@ -352,7 +370,7 @@ function fichaClase(c) {
       pago && h('button', { onclick: quitarPago }, 'Quitar pago'),
       c.estado === 'programada' && h('button', { class: 'peligro', onclick: cancelar }, 'Cancelar clase'),
       c.estado === 'cancelada' && h('button', { onclick: reactivar }, 'Reactivar'),
-      enGoogle && h('button', { onclick: enviarAGoogle }, c.google_event_id ? 'Reenviar a Google' : 'Enviar a Google'),
+      enGoogle && h('button', { onclick: enviarAGoogle }, yaEnGoogle ? 'Reenviar a Google' : 'Enviar a Google'),
       h('button', { onclick: cierra }, 'Cerrar'))));
 }
 
@@ -468,6 +486,7 @@ function fichaAlumno(a) {
     if (profeId && s.profe_id) await crea('suplencias', { serie_id: s.id, profe_id: profeId, profe_anterior_id: s.profe_id, tipo: 'indefinida', desde: L.hoy() });
     for (const c of afectadas) await cambia('clases', c.id, { profe_id: profeId });
     await cambia('series', s.id, { profe_id: profeId });
+    await sincronizaSerie(s);
     await anota('Asesor de serie asignado', { serie: textoSerie(s), asesor: nombre('profes', profeId), clases: afectadas.length });
     avisa(`${L.describeSerie(s)}: ${profeId ? nombre('profes', profeId) : 'sin asesor'}`);
   });
@@ -547,7 +566,7 @@ const nuevaSerie = accion(async () => {
   const s = await crea('series', { ...numerosSerie(v), estado: 'activa' });
   await extiendeSeries();
   await anota('Serie creada', { serie: textoSerie(s) });
-  avisa('Serie creada con sus clases');
+  avisaCon(await sincronizaSerie(s, true), 'Serie creada con sus clases');
 });
 
 const editaSerie = accion(async (s) => {
@@ -561,6 +580,7 @@ const editaSerie = accion(async (s) => {
   await cambia('series', s.id, v);
   await extiendeSeries();
   await anota('Serie editada', { serie: textoSerie(s), hasta: v.hasta });
+  avisaCon(await sincronizaSerie(s), 'Serie guardada');
 });
 
 const cambiaAsesor = accion(async (s) => {
@@ -580,7 +600,11 @@ const cambiaAsesor = accion(async (s) => {
   if (v.tipo === 'indefinida') await cambia('series', s.id, { profe_id: v.profe_id });
   await extiendeSeries();
   await anota(v.tipo === 'indefinida' ? 'Cambio de asesor titular' : 'Suplente temporal', { serie: textoSerie(s), asesor: nombre('profes', v.profe_id), desde: v.desde, hasta: v.hasta, clases: afectadas.length });
-  avisa(`Clases que pasaron a ${nombre('profes', v.profe_id)}: ${afectadas.length}`);
+  // Suplente temporal: cambia cada fecha. Cambio indefinido: cambia la serie completa en Google.
+  let r = null;
+  if (v.tipo === 'temporal') for (const c of afectadas) r = (await sincroniza(c)) || r;
+  else r = await sincronizaSerie(s);
+  avisaCon(r, `Clases que pasaron a ${nombre('profes', v.profe_id)}: ${afectadas.length}`);
 });
 
 /** Cambia día, hora, frecuencia o asesor desde una fecha. También es la forma de reanudar una pausa abierta. */
@@ -607,7 +631,7 @@ const cambiaHorario = accion(async (s) => {
   await cambia('series', s.id, nuevo);
   await extiendeSeries();
   await anota(pausa ? 'Serie reanudada' : 'Horario de serie cambiado', { serie: textoSerie(s), desde: nuevo.ancla });
-  avisa(pausa ? 'Serie reanudada: la numeración continúa' : 'Horario cambiado');
+  avisaCon(await sincronizaSerie(s), pausa ? 'Serie reanudada: la numeración continúa' : 'Horario cambiado');
 });
 
 const pausaSerie = accion(async (s) => {
@@ -624,7 +648,11 @@ const pausaSerie = accion(async (s) => {
   else await cambia('series', s.id, { estado: 'pausada' });
   await extiendeSeries();
   await anota('Serie pausada', { serie: textoSerie(s), desde: v.desde, hasta: v.hasta, recorridas: recorrer.length });
-  avisa(`Serie pausada · clases que se recorren sin cobrarse: ${recorrer.length}`);
+  // Pausa con fecha de regreso: se cancelan esas fechas en Google. Pausa abierta: la serie de Google se corta.
+  let r = null;
+  if (v.hasta) for (const c of recorrer) r = (await sincroniza(c)) || r;
+  r = (await sincronizaSerie(s)) || r;
+  avisaCon(r, `Serie pausada · clases que se recorren sin cobrarse: ${recorrer.length}`);
 });
 
 const terminaSerie = accion(async (s) => {
@@ -635,6 +663,7 @@ const terminaSerie = accion(async (s) => {
   for (const c of sobran) await borra('clases', c.id);
   await cambia('series', s.id, { hasta: v.hasta, estado: 'terminada' });
   await anota('Serie terminada', { serie: textoSerie(s), hasta: v.hasta });
+  avisaCon(await sincronizaSerie(s), 'Serie terminada');
 });
 
 function pintaSeries() {
@@ -759,14 +788,41 @@ const conectaGoogle = accion(async () => {
   const { url } = await api.funcion('gcal', { accion: 'conectar' });
   location.href = url;
 });
+let adop = null;   // resultado de «buscar eventos que ya existen»
+async function recargaEnlaces() {
+  [E.series, E.clases] = await Promise.all([api.lista('series'), api.lista('clases')]);
+}
 const cambiaCalendario = (tipo) => accion(async () => {
-  if (tipo === 'principal' && !(await pregunta('Usar tu calendario real',
-    'Desde ahora, cada clase suelta que crees, muevas o canceles en la app cambiará tu Google Calendar real, y Google enviará invitaciones y avisos por correo a los invitados. Las clases que ya existen no se tocan.',
-    'Sí, usar mi calendario real', 'Seguir en pruebas'))) return;
+  const texto = tipo === 'principal'
+    ? 'Desde ahora, lo que crees, muevas o canceles en la app cambiará tu Google Calendar real, y Google enviará invitaciones y avisos por correo. Tus eventos actuales no se tocan: después de activar, usa «Buscar eventos que ya existen» para enlazarlos sin duplicar. Lo que hayas enviado al calendario de prueba se queda allá.'
+    : 'La app dejará de escribir en tu calendario real y se soltarán los enlaces con tus eventos (se pueden volver a enlazar después). Tus eventos reales se quedan como están.';
+  if (!(await pregunta(tipo === 'principal' ? 'Usar tu calendario real' : 'Volver al calendario de prueba', texto,
+    tipo === 'principal' ? 'Sí, usar mi calendario real' : 'Volver a pruebas', 'Cancelar'))) return;
   Object.assign(G, await api.funcion('gcal', { accion: 'usar_calendario', tipo }));
+  adop = null;
+  await recargaEnlaces();
   await anota('Calendario de Google cambiado', { calendario: tipo });
   avisa(tipo === 'principal' ? 'La app ya escribe en tu calendario real' : 'La app volvió al calendario de prueba');
 })();
+const buscaAdopcion = accion(async () => {
+  adop = await api.funcion('gcal', { accion: 'adopcion', aplicar: false });
+  avisa(`Encontré ${adop.series.length} series y ${adop.clases.length} clases sueltas que ya existen`);
+});
+const aplicaAdopcion = accion(async () => {
+  const r = await api.funcion('gcal', { accion: 'adopcion', aplicar: true });
+  adop = null;
+  await recargaEnlaces();
+  await anota('Eventos de Google enlazados', { series: r.series.length, clases: r.clases.length });
+  avisa(`Enlazadas ${r.series.length} series y ${r.clases.length} clases. No se creó ni se envió nada.`);
+});
+const enviaSerie = accion(async (s) => {
+  if (G.calendario === 'principal' && !(await pregunta('Crear serie en tu calendario real',
+    `Se creará una serie NUEVA para ${nombre('alumnos', s.alumno_id)} (${L.describeSerie(s)}) con Meet, y Google invitará por correo al asesor y a los contactos. Si esta serie ya existe en tu calendario, cancela y usa «Buscar eventos que ya existen».`,
+    'Crear e invitar', 'Cancelar'))) return;
+  const r = await sincronizaSerie(s, true);
+  if (r && r.accion === 'creada') await anota('Serie enviada a Google Calendar', { serie: textoSerie(s), calendario: G.calendario });
+  avisaCon(r, 'Serie enviada');
+});
 const desconectaGoogle = accion(async () => {
   if (!(await pregunta('Desconectar Google Calendar', 'La app dejará de crear y cambiar eventos. Los eventos que ya existen en tu calendario se quedan como están.', 'Desconectar', 'No'))) return;
   Object.assign(G, await api.funcion('gcal', { accion: 'desconectar' }));
@@ -774,8 +830,11 @@ const desconectaGoogle = accion(async () => {
 });
 
 function pintaGoogle() {
-  const sueltas = E.clases.filter((c) => !c.serie_id && c.estado === 'programada' && c.fecha >= L.hoy());
-  const pendientes = sueltas.filter((c) => !c.google_event_id);
+  const sueltas = E.clases.filter((c) => !c.serie_id && c.estado === 'programada' && c.fecha >= L.hoy())
+    .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  const series = E.series.filter((x) => x.estado !== 'terminada');
+  const etiqueta = (si) => (si ? h('span', { class: 'etiqueta ok' }, 'En Google') : h('span', { class: 'etiqueta falta' }, 'Sin enlazar'));
+  const tabla = (filas) => h('div', { class: 'tabla-env' }, h('table', {}, h('tbody', {}, filas)));
   let cuerpo;
   if (api.modo === 'demo' || G.demo) {
     cuerpo = h('p', { class: 'vacio' }, 'En modo demo no hay conexión con Google Calendar.');
@@ -789,22 +848,44 @@ function pintaGoogle() {
       h('div', { class: 'botones' }, G.configurado && h('button', { class: 'principal', onclick: conectaGoogle }, 'Conectar Google Calendar')));
   } else {
     const real = G.calendario === 'principal';
+    const nSerie = (id) => { const x = por('series', id); return x ? textoSerie(x) : '—'; };
+    const nClase = (id) => { const c = por('clases', id); return c ? `${nombre('alumnos', c.alumno_id)} · ${fechaLarga(c.fecha)}, ${c.hora}` : '—'; };
+    const adopcion = !real ? null : h('section', {},
+      h('h2', {}, 'Eventos que ya existen en tu calendario'),
+      h('p', { class: 'nota' }, 'Enlaza tus series y clases con los eventos que ya creaste a mano. No crea nada, no cambia nada y nadie recibe correos. Hazlo antes de enviar algo, para no duplicar.'),
+      !adop ? h('div', { class: 'botones', style: 'justify-content:flex-start' }, h('button', { class: 'principal', onclick: buscaAdopcion }, 'Buscar eventos que ya existen'))
+        : h('div', {},
+          adop.series.length + adop.clases.length ? tabla([
+            ...adop.series.map((x) => h('tr', {}, h('td', {}, h('b', {}, 'Serie')), h('td', {}, nSerie(x.serie_id)),
+              h('td', {}, x.maestro ? `${x.coincidencias} fechas coinciden con una serie de Google` : `${x.coincidencias} fechas sueltas coinciden`))),
+            ...adop.clases.map((x) => h('tr', {}, h('td', {}, 'Clase suelta'), h('td', {}, nClase(x.clase_id)), h('td', {}, 'Coincide con un evento'))),
+          ]) : h('p', { class: 'vacio' }, 'No encontré eventos nuevos que enlazar.'),
+          adop.series_sin_pareja.length + adop.clases_sin_pareja.length ? h('div', {},
+            h('p', { class: 'nota', style: 'margin-top:.8rem' }, 'Sin pareja en tu calendario (no hay un evento con ese alumno a esa misma hora). Revisa la hora, o envíalas después con «Enviar a Google»:'),
+            tabla([...adop.series_sin_pareja.map((id) => h('tr', {}, h('td', {}, h('b', {}, 'Serie')), h('td', {}, nSerie(id)))),
+              ...adop.clases_sin_pareja.map((id) => h('tr', {}, h('td', {}, 'Clase suelta'), h('td', {}, nClase(id))))])) : null,
+          h('div', { class: 'botones' },
+            h('button', { onclick: () => { adop = null; pinta(); } }, 'Cerrar'),
+            adop.series.length + adop.clases.length ? h('button', { class: 'principal', onclick: aplicaAdopcion }, `Enlazar ${adop.series.length} series y ${adop.clases.length} clases`) : null)));
     cuerpo = h('div', {},
       h('div', { class: 'tarjeta' },
         h('dl', { class: 'datos' },
           h('dt', {}, 'Cuenta'), h('dd', {}, G.correo || '—', ' ', h('span', { class: 'etiqueta ok' }, 'Conectada')),
           h('dt', {}, 'Escribe en'), h('dd', {}, real ? h('span', { class: 'etiqueta mal' }, 'Tu calendario real') : h('span', { class: 'etiqueta falta' }, 'Calendario de prueba'),
-            real ? ' Los invitados reciben correos de Google.' : ' Búscalo en Google Calendar como «Verne - pruebas de la app».'),
-          h('dt', {}, 'Alcance'), h('dd', {}, 'Por ahora solo clases sueltas. Las series semanales se conectan en el siguiente paso.')),
+            real ? ' Google invita y avisa por correo al asesor y a los contactos.' : ' Aquí no se invita a nadie. Búscalo en Google Calendar como «Verne - pruebas de la app».')),
         h('div', { class: 'botones' },
           real ? h('button', { onclick: () => cambiaCalendario('prueba') }, 'Volver al calendario de prueba')
             : h('button', { onclick: () => cambiaCalendario('principal') }, 'Usar mi calendario real'),
           h('button', { class: 'peligro', onclick: desconectaGoogle }, 'Desconectar'))),
+      adopcion,
+      h('h2', {}, `Series (${series.length})`),
+      series.length ? tabla(series.map((x) => h('tr', {},
+        h('td', {}, h('b', {}, nombre('alumnos', x.alumno_id))), h('td', {}, L.describeSerie(x)), h('td', {}, etiqueta(x.google_event_id)),
+        h('td', { class: 'acciones' }, !x.google_event_id && x.estado === 'activa' && h('button', { class: 'chico', onclick: () => enviaSerie(x) }, 'Enviar a Google'))))) : h('p', { class: 'vacio' }, 'No hay series.'),
       h('h2', {}, `Clases sueltas próximas (${sueltas.length})`),
-      sueltas.length ? h('div', { class: 'tabla-env' }, h('table', {}, h('tbody', {}, sueltas.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)).map((c) => h('tr', { class: 'clic', onclick: () => fichaClase(c) },
-        h('td', {}, `${fechaLarga(c.fecha)}, ${c.hora}`), h('td', {}, h('b', {}, nombre('alumnos', c.alumno_id))),
-        h('td', {}, c.google_event_id ? h('span', { class: 'etiqueta ok' }, 'En Google') : h('span', { class: 'etiqueta falta' }, 'Sin enviar'))))))) : h('p', { class: 'vacio' }, 'No hay clases sueltas próximas.'),
-      pendientes.length ? h('p', { class: 'nota', style: 'margin-top:.6rem' }, 'Abre una clase «Sin enviar» y usa «Enviar a Google». Las clases que crees o muevas desde ahora se envían solas.') : null);
+      sueltas.length ? tabla(sueltas.map((c) => h('tr', { class: 'clic', onclick: () => fichaClase(c) },
+        h('td', {}, `${fechaLarga(c.fecha)}, ${c.hora}`), h('td', {}, h('b', {}, nombre('alumnos', c.alumno_id))), h('td', {}, etiqueta(c.google_event_id))))) : h('p', { class: 'vacio' }, 'No hay clases sueltas próximas.'),
+      h('p', { class: 'nota', style: 'margin-top:.6rem' }, 'Lo que esté «En Google» se actualiza solo cuando lo cambias en la app. Lo que esté «Sin enlazar» no se toca hasta que lo enlaces o lo envíes.'));
   }
   return h('div', {}, h('div', { class: 'encabezado' }, h('h1', {}, 'Google Calendar')), cuerpo);
 }
