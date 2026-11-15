@@ -69,6 +69,8 @@ const demo = {
     d[tabla] = d[tabla].filter((f) => f.id !== id); guardaDemo(d);
   },
   reinicia() { localStorage.removeItem(CLAVE_DEMO); },
+  /** En modo demo no hay Google: se responde como «no disponible». */
+  async funcion() { return { demo: true, configurado: false, conectado: false }; },
 };
 
 // ───────────── Motor Supabase ─────────────
@@ -135,6 +137,19 @@ const supabase = {
   async crea(tabla, filas) { return rest('POST', tabla, filas.map(conId)); },
   async cambia(tabla, id, cambios) { return (await rest('PATCH', `${tabla}?id=eq.${id}`, cambios))[0]; },
   async borra(tabla, id) { await rest('DELETE', `${tabla}?id=eq.${id}`); },
+  /** Llama a una función del servidor (por ejemplo «gcal», la de Google Calendar). */
+  async funcion(nombre, cuerpo) {
+    const r = await fetch(`${URL_BASE}/functions/v1/${nombre}`, {
+      method: 'POST',
+      headers: { apikey: CONFIG.supabaseAnonKey, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 404 && !j.error) throw new Error('La función de Google Calendar todavía no está instalada en Supabase.');
+    if (!r.ok) throw new Error(j.error || j.message || `Error ${r.status}`);
+    return j;
+  },
 };
 
 export const api = modo === 'supabase' ? supabase : demo;
+api.modo = modo;

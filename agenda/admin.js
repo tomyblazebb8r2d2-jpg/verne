@@ -65,6 +65,28 @@ async function borra(tabla, id) {
 }
 const anota = (accionHecha, detalle) => crea('auditoria', { accion: accionHecha, detalle });
 
+// ───────────── Google Calendar ─────────────
+const G = { listo: false, configurado: false, conectado: false, correo: null, calendario: null, error: null };
+async function cargaGoogle() {
+  try { Object.assign(G, { error: null }, await api.funcion('gcal', { accion: 'estado' })); } catch (e) { G.conectado = false; G.error = e.message; }
+  G.listo = true;
+}
+/** Manda a Google el estado actual de una clase suelta. Si Google falla, la app ya guardó: solo avisa. */
+async function sincroniza(c) {
+  if (!G.conectado || c.serie_id) return null;
+  try {
+    const r = await api.funcion('gcal', { accion: 'sincronizar_clase', clase_id: c.id });
+    if ('evento' in r) Object.assign(c, { google_event_id: r.evento, meet: r.meet });
+    return r;
+  } catch (e) {
+    avisa(`Guardado en la app, pero Google Calendar falló: ${e.message}`, true);
+    return { accion: 'error' };
+  }
+}
+const textoGoogle = (r, base) => (!r || r.accion === 'error' ? null
+  : `${base} · Google Calendar ${G.calendario === 'prueba' ? '(calendario de prueba) ' : ''}actualizado`);
+const avisaCon = (r, base) => { if (!r) avisa(base); else if (r.accion !== 'error') avisa(textoGoogle(r, base)); };
+
 // ───────────── Diálogos ─────────────
 function abre(contenido) {
   const d = $('#dlg');
@@ -219,7 +241,7 @@ const nuevaClase = accion(async (fecha, hora) => {
   if (!v) return;
   const c = await crea('clases', { ...v, duracion_h: Number(v.duracion_h), estado: 'programada' });
   await anota('Clase creada', { alumno: nombre('alumnos', c.alumno_id), fecha: c.fecha, hora: c.hora });
-  avisa('Clase creada');
+  avisaCon(await sincroniza(c), 'Clase creada');
 });
 
 function fichaClase(c) {
@@ -238,7 +260,7 @@ function fichaClase(c) {
     await cambia('clases', c.id, { ...v, duracion_h: Number(v.duracion_h) });
     if (cargo && monto != null) await cambia('movimientos', cargo.id, { monto: L.montoClase(c, alumno), fecha: c.fecha });
     await anota('Clase editada', { alumno: alumno.nombre, antes, despues: { fecha: c.fecha, hora: c.hora, asesor: nombre('profes', c.profe_id) } });
-    avisa('Clase actualizada');
+    avisaCon(await sincroniza(c), 'Clase actualizada');
   });
 
   const marcarDada = hacer(async () => {
@@ -289,14 +311,22 @@ function fichaClase(c) {
     await cambia('clases', c.id, { estado: 'cancelada', ...v });
     if (conRecargo) await crea('movimientos', { alumno_id: c.alumno_id, tipo: 'recargo', monto: L.RECARGO, clase_id: c.id, fecha: L.hoy(), nota: 'Cancelación con menos de 24 h' });
     await anota('Clase cancelada', { alumno: alumno.nombre, fecha: c.fecha, cancelo: v.cancelo, recargo: conRecargo });
-    avisa(conRecargo ? 'Clase cancelada con recargo' : 'Clase cancelada');
+    avisaCon(await sincroniza(c), conRecargo ? 'Clase cancelada con recargo' : 'Clase cancelada');
   });
 
   const reactivar = hacer(async () => {
     if (recargo) await borra('movimientos', recargo.id);
     await cambia('clases', c.id, { estado: 'programada', cancelo: null });
     await anota('Clase reactivada', { alumno: alumno.nombre, fecha: c.fecha });
+    avisaCon(await sincroniza(c), 'Clase reactivada');
   });
+
+  const enviarAGoogle = hacer(async () => {
+    const r = await sincroniza(c);
+    if (r && r.accion !== 'error') await anota('Clase enviada a Google Calendar', { alumno: alumno.nombre, fecha: c.fecha, calendario: G.calendario });
+    avisaCon(r, 'Clase enviada');
+  });
+  const enGoogle = G.conectado && !c.serie_id && c.estado !== 'cancelada';
 
   const estados = { programada: 'Programada', dada: 'Dada', cancelada: 'Cancelada', recorrida: 'Recorrida' };
   abre(h('div', { class: 'cuerpo' },
@@ -309,6 +339,10 @@ function fichaClase(c) {
       h('dt', {}, 'Importe'), h('dd', {}, monto == null ? h('span', { class: 'etiqueta falta' }, 'Falta tarifa del alumno') : L.pesos(monto),
         pago ? h('span', { class: 'etiqueta ok', style: 'margin-left:.5rem' }, `Pagada ${L.pesos(pago.monto)}`) : null,
         recargo ? h('span', { class: 'etiqueta mal', style: 'margin-left:.5rem' }, `Recargo ${L.pesos(recargo.monto)}`) : null),
+      c.meet ? [h('dt', {}, 'Meet'), h('dd', {}, h('a', { href: c.meet, target: '_blank', rel: 'noopener' }, c.meet.replace('https://', '')))] : null,
+      enGoogle ? [h('dt', {}, 'Google'), h('dd', {}, c.google_event_id
+        ? h('span', { class: 'etiqueta ok' }, G.calendario === 'prueba' ? 'En el calendario de prueba' : 'En tu Google Calendar')
+        : h('span', { class: 'etiqueta falta' }, 'Aún no está en Google Calendar'))] : null,
       c.nota ? [h('dt', {}, 'Nota'), h('dd', {}, c.nota)] : null),
     h('div', { class: 'botones' },
       c.estado === 'programada' && h('button', { onclick: editar }, 'Mover o editar'),
@@ -318,6 +352,7 @@ function fichaClase(c) {
       pago && h('button', { onclick: quitarPago }, 'Quitar pago'),
       c.estado === 'programada' && h('button', { class: 'peligro', onclick: cancelar }, 'Cancelar clase'),
       c.estado === 'cancelada' && h('button', { onclick: reactivar }, 'Reactivar'),
+      enGoogle && h('button', { onclick: enviarAGoogle }, c.google_event_id ? 'Reenviar a Google' : 'Enviar a Google'),
       h('button', { onclick: cierra }, 'Cerrar'))));
 }
 
@@ -438,6 +473,7 @@ function fichaAlumno(a) {
   });
   const asignaClase = accion(async (c, profeId) => {
     await cambia('clases', c.id, { profe_id: profeId });
+    await sincroniza(c);
     await anota('Asesor de clase asignado', { alumno: a.nombre, fecha: c.fecha, asesor: nombre('profes', profeId) });
     avisa(`Clase del ${fechaCorta(c.fecha)}: ${profeId ? nombre('profes', profeId) : 'sin asesor'}`);
   });
@@ -718,8 +754,63 @@ function pintaBitacora() {
       h('td', {}, h('b', {}, r.accion)), h('td', {}, texto(r.detalle))))))) : h('p', { class: 'vacio' }, 'Aún no hay cambios registrados.'));
 }
 
+// ───────────── Vista: Google Calendar ─────────────
+const conectaGoogle = accion(async () => {
+  const { url } = await api.funcion('gcal', { accion: 'conectar' });
+  location.href = url;
+});
+const cambiaCalendario = (tipo) => accion(async () => {
+  if (tipo === 'principal' && !(await pregunta('Usar tu calendario real',
+    'Desde ahora, cada clase suelta que crees, muevas o canceles en la app cambiará tu Google Calendar real, y Google enviará invitaciones y avisos por correo a los invitados. Las clases que ya existen no se tocan.',
+    'Sí, usar mi calendario real', 'Seguir en pruebas'))) return;
+  Object.assign(G, await api.funcion('gcal', { accion: 'usar_calendario', tipo }));
+  await anota('Calendario de Google cambiado', { calendario: tipo });
+  avisa(tipo === 'principal' ? 'La app ya escribe en tu calendario real' : 'La app volvió al calendario de prueba');
+})();
+const desconectaGoogle = accion(async () => {
+  if (!(await pregunta('Desconectar Google Calendar', 'La app dejará de crear y cambiar eventos. Los eventos que ya existen en tu calendario se quedan como están.', 'Desconectar', 'No'))) return;
+  Object.assign(G, await api.funcion('gcal', { accion: 'desconectar' }));
+  await anota('Google Calendar desconectado', {});
+});
+
+function pintaGoogle() {
+  const sueltas = E.clases.filter((c) => !c.serie_id && c.estado === 'programada' && c.fecha >= L.hoy());
+  const pendientes = sueltas.filter((c) => !c.google_event_id);
+  let cuerpo;
+  if (api.modo === 'demo' || G.demo) {
+    cuerpo = h('p', { class: 'vacio' }, 'En modo demo no hay conexión con Google Calendar.');
+  } else if (G.error) {
+    cuerpo = h('div', { class: 'tarjeta' }, h('p', {}, h('span', { class: 'etiqueta falta' }, 'Sin instalar'), ' ', G.error),
+      h('p', { class: 'nota', style: 'margin-top:.6rem' }, 'Falta instalar en Supabase la función «gcal». Los pasos están en la guía de la fase 2.'));
+  } else if (!G.conectado) {
+    cuerpo = h('div', { class: 'tarjeta' },
+      h('p', {}, h('span', { class: 'etiqueta falta' }, 'Sin conectar'), G.configurado ? ' La función está lista. Falta que autorices tu cuenta de Google.' : ' Faltan las llaves de Google en los secretos de la función.'),
+      h('p', { class: 'nota', style: 'margin-top:.6rem' }, 'Al conectar, la app empieza en un calendario de prueba aparte («Verne - pruebas de la app»). Tu calendario real no se toca hasta que tú lo actives.'),
+      h('div', { class: 'botones' }, G.configurado && h('button', { class: 'principal', onclick: conectaGoogle }, 'Conectar Google Calendar')));
+  } else {
+    const real = G.calendario === 'principal';
+    cuerpo = h('div', {},
+      h('div', { class: 'tarjeta' },
+        h('dl', { class: 'datos' },
+          h('dt', {}, 'Cuenta'), h('dd', {}, G.correo || '—', ' ', h('span', { class: 'etiqueta ok' }, 'Conectada')),
+          h('dt', {}, 'Escribe en'), h('dd', {}, real ? h('span', { class: 'etiqueta mal' }, 'Tu calendario real') : h('span', { class: 'etiqueta falta' }, 'Calendario de prueba'),
+            real ? ' Los invitados reciben correos de Google.' : ' Búscalo en Google Calendar como «Verne - pruebas de la app».'),
+          h('dt', {}, 'Alcance'), h('dd', {}, 'Por ahora solo clases sueltas. Las series semanales se conectan en el siguiente paso.')),
+        h('div', { class: 'botones' },
+          real ? h('button', { onclick: () => cambiaCalendario('prueba') }, 'Volver al calendario de prueba')
+            : h('button', { onclick: () => cambiaCalendario('principal') }, 'Usar mi calendario real'),
+          h('button', { class: 'peligro', onclick: desconectaGoogle }, 'Desconectar'))),
+      h('h2', {}, `Clases sueltas próximas (${sueltas.length})`),
+      sueltas.length ? h('div', { class: 'tabla-env' }, h('table', {}, h('tbody', {}, sueltas.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)).map((c) => h('tr', { class: 'clic', onclick: () => fichaClase(c) },
+        h('td', {}, `${fechaLarga(c.fecha)}, ${c.hora}`), h('td', {}, h('b', {}, nombre('alumnos', c.alumno_id))),
+        h('td', {}, c.google_event_id ? h('span', { class: 'etiqueta ok' }, 'En Google') : h('span', { class: 'etiqueta falta' }, 'Sin enviar'))))))) : h('p', { class: 'vacio' }, 'No hay clases sueltas próximas.'),
+      pendientes.length ? h('p', { class: 'nota', style: 'margin-top:.6rem' }, 'Abre una clase «Sin enviar» y usa «Enviar a Google». Las clases que crees o muevas desde ahora se envían solas.') : null);
+  }
+  return h('div', {}, h('div', { class: 'encabezado' }, h('h1', {}, 'Google Calendar')), cuerpo);
+}
+
 // ───────────── Marco general ─────────────
-const VISTAS = { semana: ['Semana', pintaSemana], alumnos: ['Alumnos', pintaAlumnos], series: ['Series', pintaSeries], asesores: ['Asesores', pintaAsesores], cuentas: ['Cuentas', pintaCuentas], bitacora: ['Bitácora', pintaBitacora] };
+const VISTAS = { semana: ['Semana', pintaSemana], alumnos: ['Alumnos', pintaAlumnos], series: ['Series', pintaSeries], asesores: ['Asesores', pintaAsesores], cuentas: ['Cuentas', pintaCuentas], google: ['Google', pintaGoogle], bitacora: ['Bitácora', pintaBitacora] };
 
 function pinta() {
   $('#pestanas').replaceChildren(...Object.entries(VISTAS).map(([k, [texto]]) =>
@@ -732,6 +823,14 @@ async function carga() {
   const listas = await Promise.all(TABLAS.map((t) => api.lista(t)));
   TABLAS.forEach((t, i) => { E[t] = listas[i]; });
   await extiendeSeries();
+  await cargaGoogle();
+  const vuelta = new URLSearchParams(location.search).get('google');
+  if (vuelta) {
+    vista = 'google';
+    history.replaceState(null, '', location.pathname);
+    const textos = { ok: 'Google Calendar conectado (calendario de prueba)', vencido: 'La autorización caducó. Intenta conectar otra vez.', cancelado: 'No se autorizó la cuenta de Google.', error: 'Google no entregó el permiso. Intenta conectar otra vez.' };
+    avisa(textos[vuelta] || 'No se pudo conectar Google Calendar.', vuelta !== 'ok');
+  }
   pinta();
 }
 
