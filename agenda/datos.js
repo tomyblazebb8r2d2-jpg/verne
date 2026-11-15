@@ -7,7 +7,9 @@ import { hoy, lunesDe, sumaDias } from './logica.js';
 export const TABLAS = ['profes', 'alumnos', 'contactos', 'alumno_contacto', 'series', 'serie_pausas',
   'suplencias', 'clases', 'movimientos', 'pagos_profes', 'auditoria'];
 
-export const modo = CONFIG.supabaseUrl && CONFIG.supabaseAnonKey ? 'supabase' : 'demo';
+// Con ?demo en la dirección se fuerza el modo demo (para probar sin tocar los datos reales).
+const forzarDemo = new URLSearchParams(globalThis.location?.search || '').has('demo');
+export const modo = !forzarDemo && CONFIG.supabaseUrl && CONFIG.supabaseAnonKey ? 'supabase' : 'demo';
 const uuid = () => crypto.randomUUID();
 const conId = (f) => ({ id: uuid(), ...f });
 

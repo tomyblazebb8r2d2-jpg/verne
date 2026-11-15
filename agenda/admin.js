@@ -141,6 +141,7 @@ function pintaSemana() {
   const dias = [0, 1, 2, 3, 4, 5, 6].map((i) => L.sumaDias(semana, i));
   const visibles = E.clases.filter((c) => c.fecha >= dias[0] && c.fecha <= dias[6] && c.estado !== 'recorrida');
   const chocan = L.choques(visibles);
+  const pares = L.paresChoque(visibles);
   const nums = L.numeros(E.clases);
 
   const columna = (dia) => {
@@ -191,7 +192,17 @@ function pintaSemana() {
       dias.map((d) => h('div', { class: d === L.hoy() ? 'cab hoy' : 'cab' }, L.DIAS[L.diaSemana(d)], h('small', {}, fechaCorta(d)))),
       h('div', { class: 'horas', style: `height:${(H1 - H0) * PX}px` },
         Array.from({ length: H1 - H0 - 1 }, (_, i) => h('span', { style: `top:${(i + 1) * PX}px` }, `${H0 + i + 1}:00`))),
-      dias.map(columna))));
+      dias.map(columna))),
+    pares.length ? h('section', {},
+      h('h2', {}, `Choques de horario esta semana (${pares.length})`),
+      h('p', { class: 'nota' }, 'Es solo un aviso: la app no bloquea nada. Se quita al cambiar el asesor o la hora de una de las dos clases.'),
+      h('div', { class: 'tabla-env' }, h('table', {}, h('tbody', {}, pares.map(([a, b, motivo]) => h('tr', {},
+        h('td', {}, `${L.DIAS[L.diaSemana(a.fecha)]} ${fechaCorta(a.fecha)}`),
+        h('td', {}, h('b', {}, nombre('alumnos', a.alumno_id)), ` ${a.hora}–${L.finDe(a)}`, ' y ', h('b', {}, nombre('alumnos', b.alumno_id)), ` ${b.hora}–${L.finDe(b)}`),
+        h('td', {}, motivo === 'asesor' ? `Mismo asesor: ${nombre('profes', a.profe_id)}` : 'Mismo alumno en dos clases'),
+        h('td', { class: 'acciones' },
+          h('button', { class: 'chico', onclick: () => fichaClase(a) }, `Abrir ${nombre('alumnos', a.alumno_id)}`),
+          h('button', { class: 'chico', onclick: () => fichaClase(b) }, `Abrir ${nombre('alumnos', b.alumno_id)}`)))))))) : null);
 }
 
 const camposClase = () => [
@@ -342,7 +353,10 @@ function etiquetaSaldo(s) {
 
 function pintaAlumnos() {
   const lista = ordena(E.alumnos, (a) => (a.activo ? '0' : '1') + a.nombre);
-  const asesores = (a) => [...new Set(E.series.filter((s) => s.alumno_id === a.id && s.estado !== 'terminada').map((s) => nombre('profes', s.profe_id)))].join(', ');
+  const asesores = (a) => [...new Set([
+    ...E.series.filter((s) => s.alumno_id === a.id && s.estado !== 'terminada').map((s) => s.profe_id),
+    ...E.clases.filter((c) => c.alumno_id === a.id && !c.serie_id && c.estado === 'programada').map((c) => c.profe_id),
+  ].map((id) => (id ? nombre('profes', id) : 'Sin asignar')))].join(', ');
   return h('div', {},
     h('div', { class: 'encabezado' }, h('h1', {}, 'Alumnos'), h('button', { class: 'principal', onclick: () => editaAlumno(null) }, 'Nuevo alumno')),
     h('div', { class: 'tabla-env' }, h('table', {},
@@ -405,8 +419,45 @@ function fichaAlumno(a) {
     await anota('Movimiento quitado', { alumno: a.nombre, tipo: m.tipo, monto: m.monto });
   });
 
+  // Asesor de cada serie y de cada clase suelta, directo desde la ficha del alumno.
+  const selectorProfe = (valor, alCambiar) => {
+    const ops = opsProfes();
+    if (valor && !ops.some(([v]) => v === valor)) ops.push([valor, `${nombre('profes', valor)} (baja)`]);
+    const s = h('select', { 'aria-label': 'Asesor', onchange: (ev) => alCambiar(ev.target.value || null) }, ops.map(([v, t]) => h('option', { value: v }, t)));
+    s.value = valor || '';
+    return s;
+  };
+  const asignaSerie = accion(async (s, profeId) => {
+    // Primera asignación: aplica a todas las clases pendientes. Cambio posterior: de hoy en adelante.
+    const afectadas = programadasDesde(s.id, s.profe_id ? L.hoy() : '0000-01-01');
+    if (profeId && s.profe_id) await crea('suplencias', { serie_id: s.id, profe_id: profeId, profe_anterior_id: s.profe_id, tipo: 'indefinida', desde: L.hoy() });
+    for (const c of afectadas) await cambia('clases', c.id, { profe_id: profeId });
+    await cambia('series', s.id, { profe_id: profeId });
+    await anota('Asesor de serie asignado', { serie: textoSerie(s), asesor: nombre('profes', profeId), clases: afectadas.length });
+    avisa(`${L.describeSerie(s)}: ${profeId ? nombre('profes', profeId) : 'sin asesor'}`);
+  });
+  const asignaClase = accion(async (c, profeId) => {
+    await cambia('clases', c.id, { profe_id: profeId });
+    await anota('Asesor de clase asignado', { alumno: a.nombre, fecha: c.fecha, asesor: nombre('profes', profeId) });
+    avisa(`Clase del ${fechaCorta(c.fecha)}: ${profeId ? nombre('profes', profeId) : 'sin asesor'}`);
+  });
+  const susSeries = E.series.filter((s) => s.alumno_id === a.id && s.estado !== 'terminada');
+  const susSueltas = E.clases.filter((c) => c.alumno_id === a.id && !c.serie_id && c.estado === 'programada').sort((x, y) => (x.fecha + x.hora).localeCompare(y.fecha + y.hora));
+
   return h('section', {},
     h('div', { class: 'encabezado', style: 'margin-top:1.5rem' }, h('h1', {}, a.nombre), etiquetaSaldo(L.saldo(a, E.movimientos))),
+    h('h2', { style: 'margin-top:0' }, 'Asesor de sus clases'),
+    susSeries.length || susSueltas.length ? h('div', { class: 'tabla-env', style: 'margin-bottom:1.25rem' }, h('table', {},
+      h('thead', {}, h('tr', {}, h('th', {}, 'Clase'), h('th', {}, 'Cuándo'), h('th', {}, 'Asesor'))),
+      h('tbody', {},
+        susSeries.map((s) => h('tr', {},
+          h('td', {}, h('b', {}, 'Serie'), s.estado === 'pausada' ? ' (en pausa)' : ''),
+          h('td', {}, L.describeSerie(s)),
+          h('td', {}, selectorProfe(s.profe_id, (id) => asignaSerie(s, id))))),
+        susSueltas.map((c) => h('tr', {},
+          h('td', {}, 'Clase suelta'),
+          h('td', {}, `${fechaLarga(c.fecha)}, ${c.hora}–${L.finDe(c)}`),
+          h('td', {}, selectorProfe(c.profe_id, (id) => asignaClase(c, id)))))))) : h('p', { class: 'vacio' }, 'No tiene series ni clases sueltas programadas.'),
     h('div', { class: 'dos' },
       h('div', {},
         h('h2', { style: 'margin-top:0' }, 'Contactos'),

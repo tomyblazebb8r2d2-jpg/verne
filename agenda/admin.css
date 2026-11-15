@@ -28,6 +28,8 @@ a { color: var(--petroleo); }
 
 main { padding: 1.25rem; max-width: 1400px; margin: 0 auto; }
 .cargando, .vacio { color: var(--suave); padding: 1.5rem 0; }
+.nota { color: var(--suave); font-size: 0.9rem; margin-bottom: 0.6rem; }
+td select { min-width: 9rem; }
 .encabezado { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .encabezado h1 { margin-right: auto; }
 

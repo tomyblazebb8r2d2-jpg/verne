@@ -78,6 +78,28 @@ const activa = (c) => c.estado === 'programada' || c.estado === 'dada';
 export const seEmpalman = (a, b) =>
   a.fecha === b.fecha && aMinutos(a.hora) < aMinutos(finDe(b)) && aMinutos(b.hora) < aMinutos(finDe(a));
 
+/** Pares de clases que chocan, con el motivo: [claseA, claseB, 'asesor' | 'alumno']. */
+export function paresChoque(clases) {
+  const pares = [];
+  const porDia = new Map();
+  for (const c of clases.filter(activa)) {
+    if (!porDia.has(c.fecha)) porDia.set(c.fecha, []);
+    porDia.get(c.fecha).push(c);
+  }
+  for (const fecha of [...porDia.keys()].sort()) {
+    const lista = porDia.get(fecha).sort((a, b) => a.hora.localeCompare(b.hora));
+    for (let i = 0; i < lista.length; i++) {
+      for (let j = i + 1; j < lista.length; j++) {
+        const a = lista[i], b = lista[j];
+        if (!seEmpalman(a, b)) continue;
+        if (a.alumno_id === b.alumno_id) pares.push([a, b, 'alumno']);
+        else if (a.profe_id && a.profe_id === b.profe_id) pares.push([a, b, 'asesor']);
+      }
+    }
+  }
+  return pares;
+}
+
 /** Ids de clases que chocan: mismo asesor o mismo alumno a la misma hora. */
 export function choques(clases) {
   const ids = new Set();
