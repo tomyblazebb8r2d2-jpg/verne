@@ -102,3 +102,6 @@ input[type="color"] { padding: 0.15rem; height: 2.4rem; }
 .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; align-items: start; }
 
 body.ocupado, body.ocupado button { cursor: progress; }
+p.error { background: var(--alerta-clara); color: var(--alerta); font-weight: 700; padding: 0.6rem 0.75rem; border-radius: 8px; }
+[aria-invalid="true"] { border-color: var(--alerta); outline: 2px solid var(--alerta); outline-offset: 1px; }
+small.gris { color: var(--suave); font-weight: 500; }

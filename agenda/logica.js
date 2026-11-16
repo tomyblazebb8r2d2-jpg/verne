@@ -150,3 +150,45 @@ export function proponeRecargo(clase, alumno, quienCancela, ahora = new Date()) 
 }
 
 export const pesos = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`);
+
+// ── Validación de datos ──
+const DOMINIOS_MAL = {
+  'gmial.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com',
+  'gmail.cm': 'gmail.com', 'gnail.com': 'gmail.com', 'gmaill.com': 'gmail.com', 'gmail.comm': 'gmail.com', 'gamil.com': 'gmail.com',
+  'hotmial.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmal.com': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'hotmail.co': 'hotmail.com',
+  'outlok.com': 'outlook.com', 'outloo.com': 'outlook.com', 'outlook.con': 'outlook.com', 'icloud.con': 'icloud.com', 'iclud.com': 'icloud.com',
+  'yaho.com': 'yahoo.com', 'yahoo.con': 'yahoo.com', 'yahooo.com': 'yahoo.com',
+};
+/** Devuelve el problema de un correo, o null si se ve bien. Detecta dominios mal escritos comunes. */
+export function revisaCorreo(correo) {
+  const c = String(correo || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(c)) return 'El correo no tiene un formato válido (ejemplo: nombre@gmail.com).';
+  const dominio = c.split('@')[1];
+  if (DOMINIOS_MAL[dominio]) return `El correo termina en «${dominio}». ¿Quisiste escribir «${DOMINIOS_MAL[dominio]}»?`;
+  return null;
+}
+/** Deja un teléfono de México en 10 dígitos. Acepta espacios, guiones, +52 y +52 1. */
+export function limpiaTelefono(tel) {
+  let d = String(tel || '').replace(/\D/g, '');
+  if (d.length === 13 && d.startsWith('521')) d = d.slice(3);
+  else if (d.length === 12 && d.startsWith('52')) d = d.slice(2);
+  if (d.length !== 10) return { valor: null, error: 'El WhatsApp debe tener 10 dígitos (ejemplo: 222 123 4567).' };
+  return { valor: d, error: null };
+}
+export const HORA_MIN = 7, HORA_MAX = 22;
+/** Una clase debe caber en el horario que muestra el calendario (7:00 a 22:00). */
+export function revisaHorario(hora, duracion) {
+  if (!hora) return 'Falta la hora de inicio.';
+  const ini = aMinutos(hora), fin = ini + Number(duracion) * 60;
+  if (ini < HORA_MIN * 60 || fin > HORA_MAX * 60) return `La clase debe quedar entre las ${HORA_MIN}:00 y las ${HORA_MAX}:00. Revisa si es de la mañana o de la tarde.`;
+  return null;
+}
+
+export const GRADOS = [
+  ...[1, 2, 3, 4, 5, 6].map((n) => `${n}.º de primaria`),
+  ...[1, 2, 3].map((n) => `${n}.º de secundaria`),
+  ...[1, 2, 3].map((n) => `${n}.º de preparatoria`),
+  'Universidad', 'Otro',
+];
+/** Nivel de tarifa que corresponde a un grado: 'basico' (primaria a prepa), 'universidad' o null. */
+export const nivelDeGrado = (grado) => (!grado || grado === 'Otro' ? null : grado === 'Universidad' ? 'universidad' : 'basico');

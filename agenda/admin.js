@@ -119,7 +119,7 @@ function abre(contenido) {
 const cierra = () => $('#dlg').close();
 
 /** Formulario genérico. Devuelve los valores o null si se canceló. */
-function formulario(titulo, campos, valores = {}, textoBoton = 'Guardar') {
+function formulario(titulo, campos, valores = {}, textoBoton = 'Guardar', valida = null) {
   return new Promise((listo) => {
     const entradas = {};
     const filas = campos.map((c) => {
@@ -136,18 +136,42 @@ function formulario(titulo, campos, valores = {}, textoBoton = 'Guardar') {
         ? h('label', { class: 'casilla' }, ent, c.e)
         : h('label', {}, c.e, ent, c.ayuda && h('small', {}, c.ayuda));
     });
-    const f = h('form', { method: 'dialog' }, h('h2', {}, titulo), filas,
+    const error = h('p', { class: 'error', role: 'alert', hidden: true });
+    const f = h('form', { method: 'dialog', novalidate: true }, h('h2', {}, titulo), filas, error,
       h('div', { class: 'botones' },
         h('button', { type: 'button', onclick: () => { cierra(); listo(null); } }, 'Cancelar'),
         h('button', { class: 'principal' }, textoBoton)));
     f.addEventListener('submit', (ev) => {
       ev.preventDefault();
       const r = {};
+      let falla = null, donde = null;
+      const marca = (c, texto) => { if (!falla) { falla = texto; donde = entradas[c.n]; } };
       for (const c of campos) {
         const ent = entradas[c.n];
-        if (c.t === 'check') r[c.n] = ent.checked;
-        else if (c.t === 'number') r[c.n] = ent.value === '' ? null : Number(ent.value);
+        ent.removeAttribute('aria-invalid');
+        if (c.t === 'check') { r[c.n] = ent.checked; continue; }
+        if (c.t === 'number') r[c.n] = ent.value.trim() === '' ? null : Number(ent.value);
         else r[c.n] = ent.value.trim() === '' ? null : ent.value.trim();
+        const v = r[c.n];
+        if (v == null) {
+          if (c.req) marca(c, `Falta: ${c.e}.`);
+          else if (c.t === 'number' && ent.validity.badInput) marca(c, `${c.e}: escribe solo números.`);
+          continue;
+        }
+        if (c.t === 'email') { const e = L.revisaCorreo(v); if (e) marca(c, e); else r[c.n] = v.toLowerCase(); }
+        else if (c.t === 'tel') { const t = L.limpiaTelefono(v); if (t.error) marca(c, t.error); else r[c.n] = t.valor; }
+        else if (c.t === 'number') {
+          if (!Number.isFinite(v)) marca(c, `${c.e}: escribe solo números.`);
+          else if (c.min != null && v < c.min) marca(c, c.min > 0 && c.min < 1 ? `${c.e}: debe ser mayor que cero.` : `${c.e}: no puede ser menor que ${c.min}.`);
+          else if (c.max != null && v > c.max) marca(c, `${c.e}: ${v} parece demasiado. El máximo es ${c.max}.`);
+        } else if (c.t === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) marca(c, `${c.e}: la fecha no es válida.`);
+        else if (!c.t && c.min != null && v.length < c.min) marca(c, `${c.e}: es demasiado corto.`);
+      }
+      if (!falla && valida) falla = valida(r) || null;
+      if (falla) {
+        error.textContent = falla; error.hidden = false;
+        if (donde) { donde.setAttribute('aria-invalid', 'true'); donde.focus(); }
+        return;
       }
       cierra(); listo(r);
     });
@@ -258,8 +282,10 @@ const camposClase = () => [
   { n: 'nota', e: 'Nota', t: 'area' },
 ];
 
+const validaClase = (v) => L.revisaHorario(v.hora, v.duracion_h);
+
 const nuevaClase = accion(async (fecha, hora) => {
-  const v = await formulario('Nueva clase', camposClase(), { fecha, hora, duracion_h: '1' }, 'Crear clase');
+  const v = await formulario('Nueva clase', camposClase(), { fecha, hora, duracion_h: '1' }, 'Crear clase', validaClase);
   if (!v) return;
   const c = await crea('clases', { ...v, duracion_h: Number(v.duracion_h), estado: 'programada' });
   await anota('Clase creada', { alumno: nombre('alumnos', c.alumno_id), fecha: c.fecha, hora: c.hora });
@@ -276,7 +302,7 @@ function fichaClase(c) {
   const hacer = (fn) => accion(async () => { cierra(); await fn(); });
 
   const editar = hacer(async () => {
-    const v = await formulario('Mover o editar clase', camposClase().slice(1), { ...c, profe_id: c.profe_id || '', duracion_h: String(c.duracion_h) });
+    const v = await formulario('Mover o editar clase', camposClase().slice(1), { ...c, profe_id: c.profe_id || '', duracion_h: String(c.duracion_h) }, 'Guardar', validaClase);
     if (!v) return;
     const antes = { fecha: c.fecha, hora: c.hora, asesor: nombre('profes', c.profe_id) };
     await cambia('clases', c.id, { ...v, duracion_h: Number(v.duracion_h) });
@@ -302,7 +328,7 @@ function fichaClase(c) {
 
   const marcarPagada = hacer(async () => {
     const v = await formulario('Registrar pago de esta clase', [
-      { n: 'monto', e: 'Monto', t: 'number', req: true },
+      { n: 'monto', e: 'Monto', t: 'number', req: true, min: 0.01, max: 100000 },
       { n: 'fecha', e: 'Fecha del pago', t: 'date', req: true },
       { n: 'forma_pago', e: 'Forma de pago', t: 'select', ops: [['', '—'], ['transferencia', 'Transferencia'], ['efectivo', 'Efectivo'], ['otro', 'Otro']] },
     ], { monto: monto ?? '', fecha: L.hoy() }, 'Registrar pago');
@@ -382,27 +408,54 @@ function fichaClase(c) {
 
 // ───────────── Vista: alumnos ─────────────
 const NIVELES = { basico: ['Primaria a prepa', 180], universidad: ['Universidad', 200] };
-const camposAlumno = [
-  { n: 'nombre', e: 'Nombre del alumno', req: true },
-  { n: 'nivel', e: 'Nivel', t: 'select', ops: [['', 'Sin definir'], ['basico', 'Primaria a prepa ($180/h)'], ['universidad', 'Universidad ($200/h)']] },
-  { n: 'tarifa_hora', e: 'Tarifa por hora', t: 'number', ayuda: 'Si la dejas vacía y eliges nivel, se pone el precio publicado.' },
+// Grado y escuela existen solo si ya se corrió 008_alumnos_grado.sql; si no, no se muestran.
+const hayGrado = () => api.modo === 'demo' || !E.alumnos.length || E.alumnos.some((a) => 'grado' in a);
+const camposAlumno = () => [
+  { n: 'nombre', e: 'Nombre del alumno', req: true, min: 2 },
+  hayGrado() && { n: 'grado', e: 'Grado', t: 'select', ops: [['', 'Sin definir'], ...L.GRADOS.map((g) => [g, g])] },
+  hayGrado() && { n: 'escuela', e: 'Escuela (opcional)' },
+  { n: 'nivel', e: 'Nivel de tarifa', t: 'select', ops: [['', hayGrado() ? 'Según el grado' : 'Sin definir'], ['basico', 'Primaria a prepa ($180/h)'], ['universidad', 'Universidad ($200/h)']] },
+  { n: 'tarifa_hora', e: 'Tarifa por hora', t: 'number', min: 0, max: 2000, ayuda: 'Si la dejas vacía, se pone el precio publicado de su nivel.' },
   { n: 'correo', e: 'Correo del alumno', t: 'email' },
-  { n: 'saldo_inicial', e: 'Saldo inicial', t: 'number', ayuda: 'Lo que debía al arrancar la app. Negativo si tenía saldo a favor.' },
+  { n: 'saldo_inicial', e: 'Saldo inicial', t: 'number', min: -100000, max: 100000, ayuda: 'Lo que debía al arrancar la app. Negativo si tenía saldo a favor.' },
   { n: 'fecha_arranque', e: 'Fecha de arranque del saldo', t: 'date' },
   { n: 'exento_recargo', e: 'Exento del recargo por cancelación tardía', t: 'check' },
   { n: 'activo', e: 'Alumno activo', t: 'check' },
   { n: 'notas', e: 'Notas', t: 'area' },
-];
+].filter(Boolean);
+const mismoNombre = (x, y) => x.trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '') === y.trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
 
 const editaAlumno = accion(async (a) => {
-  const v = await formulario(a ? 'Editar alumno' : 'Nuevo alumno', camposAlumno, a || { activo: true, saldo_inicial: 0 });
+  const v = await formulario(a ? 'Editar alumno' : 'Nuevo alumno', camposAlumno(), a || { activo: true, saldo_inicial: 0 });
   if (!v) return;
+  const repetido = E.alumnos.find((x) => x.id !== a?.id && mismoNombre(x.nombre, v.nombre));
+  if (repetido && !(await pregunta('Nombre repetido', `Ya existe un alumno llamado «${repetido.nombre}». Si es otra persona, agrégale un apellido para distinguirlos.`, 'Guardar de todos modos', 'No guardar'))) return;
+  if (!v.nivel && v.grado) v.nivel = L.nivelDeGrado(v.grado);
   if (v.tarifa_hora == null && v.nivel) v.tarifa_hora = NIVELES[v.nivel][1];
   v.saldo_inicial = v.saldo_inicial ?? 0;
   if (a) await cambia('alumnos', a.id, v); else alumnoAbierto = (await crea('alumnos', v)).id;
   await anota(a ? 'Alumno editado' : 'Alumno creado', { alumno: v.nombre });
   avisa('Alumno guardado');
 });
+
+/** Descarga la base de alumnos como CSV (se abre en Excel o Google Sheets). Se genera en este navegador. */
+function descargaAlumnos() {
+  const celda = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const filas = [['Alumno', 'Grado', 'Escuela', 'Nivel de tarifa', 'Tarifa por hora', 'Correo del alumno', 'Contactos', 'WhatsApp', 'Correos de contacto', 'Responsable de pago', 'Asesores', 'Series', 'Clases dadas', 'Saldo', 'Exento de recargo', 'Activo', 'Notas']];
+  for (const a of ordena(E.alumnos, (x) => x.nombre)) {
+    const cs = E.alumno_contacto.filter((x) => x.alumno_id === a.id).map((x) => ({ ...por('contactos', x.contacto_id), paga: x.responsable_pago }));
+    const ss = E.series.filter((x) => x.alumno_id === a.id && x.estado !== 'terminada');
+    filas.push([a.nombre, a.grado, a.escuela, a.nivel ? NIVELES[a.nivel][0] : '', a.tarifa_hora, a.correo,
+      cs.map((c) => c.nombre + (c.relacion ? ` (${c.relacion})` : '')).join('; '), cs.map((c) => c.whatsapp).filter(Boolean).join('; '), cs.map((c) => c.correo).filter(Boolean).join('; '),
+      cs.filter((c) => c.paga).map((c) => c.nombre).join('; '), [...new Set(ss.map((x) => x.profe_id).filter(Boolean).map((id) => nombre('profes', id)))].join('; '),
+      ss.map((x) => L.describeSerie(x)).join('; '), E.clases.filter((c) => c.alumno_id === a.id && c.estado === 'dada').length,
+      L.saldo(a, E.movimientos), a.exento_recargo ? 'Sí' : 'No', a.activo ? 'Sí' : 'No', a.notas]);
+  }
+  const csv = '\ufeff' + filas.map((f) => f.map(celda).join(',')).join('\r\n');
+  const enlace = h('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: `alumnos-verne-${L.hoy()}.csv` });
+  document.body.append(enlace); enlace.click(); enlace.remove();
+  avisa('Lista descargada');
+}
 
 function etiquetaSaldo(s) {
   if (s > 0) return h('span', { class: 'debe' }, `Debe ${L.pesos(s)}`);
@@ -417,12 +470,12 @@ function pintaAlumnos() {
     ...E.clases.filter((c) => c.alumno_id === a.id && !c.serie_id && c.estado === 'programada').map((c) => c.profe_id),
   ].map((id) => (id ? nombre('profes', id) : 'Sin asignar')))].join(', ');
   return h('div', {},
-    h('div', { class: 'encabezado' }, h('h1', {}, 'Alumnos'), h('button', { class: 'principal', onclick: () => editaAlumno(null) }, 'Nuevo alumno')),
+    h('div', { class: 'encabezado' }, h('h1', {}, 'Alumnos'), h('button', { onclick: descargaAlumnos }, 'Descargar lista (Excel)'), h('button', { class: 'principal', onclick: () => editaAlumno(null) }, 'Nuevo alumno')),
     h('div', { class: 'tabla-env' }, h('table', {},
-      h('thead', {}, h('tr', {}, ['Alumno', 'Nivel', 'Tarifa', 'Asesor', 'Saldo', ''].map((t) => h('th', {}, t)))),
+      h('thead', {}, h('tr', {}, ['Alumno', 'Grado', 'Tarifa', 'Asesor', 'Saldo', ''].map((t) => h('th', {}, t)))),
       h('tbody', {}, lista.map((a) => h('tr', { class: `clic${a.activo ? '' : ' inactivo'}`, onclick: () => { alumnoAbierto = a.id; pinta(); } },
         h('td', {}, h('b', {}, a.nombre), a.exento_recargo ? h('span', { class: 'etiqueta', style: 'margin-left:.5rem' }, 'Exento de recargo') : null, a.activo ? null : ' (inactivo)'),
-        h('td', {}, a.nivel ? NIVELES[a.nivel][0] : h('span', { class: 'etiqueta falta' }, 'Falta')),
+        h('td', {}, a.grado || (a.nivel ? NIVELES[a.nivel][0] : h('span', { class: 'etiqueta falta' }, 'Falta')), a.escuela ? h('small', { class: 'gris' }, ` · ${a.escuela}`) : null),
         h('td', {}, a.tarifa_hora == null ? h('span', { class: 'etiqueta falta' }, 'Falta') : `${L.pesos(a.tarifa_hora)}/h`),
         h('td', {}, asesores(a) || '—'),
         h('td', {}, etiquetaSaldo(L.saldo(a, E.movimientos))),
@@ -437,11 +490,12 @@ function fichaAlumno(a) {
 
   const nuevoContacto = accion(async () => {
     const v = await formulario(`Contacto de ${a.nombre}`, [
-      { n: 'nombre', e: 'Nombre', req: true }, { n: 'relacion', e: 'Relación (mamá, papá, el mismo alumno…)' },
+      { n: 'nombre', e: 'Nombre', req: true, min: 2 }, { n: 'relacion', e: 'Relación (mamá, papá, el mismo alumno…)' },
       { n: 'whatsapp', e: 'WhatsApp', t: 'tel' }, { n: 'correo', e: 'Correo', t: 'email' },
       { n: 'responsable_pago', e: 'Es responsable de pago', t: 'check' },
       { n: 'invitar', e: 'Invitarlo a las clases (Google Calendar)', t: 'check' },
-    ], { responsable_pago: true, invitar: true });
+    ], { responsable_pago: true, invitar: true }, 'Guardar',
+      (x) => (!x.whatsapp && !x.correo ? 'Captura al menos el WhatsApp o el correo del contacto.' : x.invitar && !x.correo ? 'Para invitarlo a las clases hace falta su correo. Captúralo o desmarca la casilla.' : null));
     if (!v) return;
     const { responsable_pago, invitar, ...datos } = v;
     const c = await crea('contactos', datos);
@@ -460,13 +514,12 @@ function fichaAlumno(a) {
   const nuevoMovimiento = (tipo) => accion(async () => {
     const esPago = tipo === 'pago';
     const v = await formulario(esPago ? `Registrar pago de ${a.nombre}` : `Ajuste a la cuenta de ${a.nombre}`, [
-      { n: 'monto', e: esPago ? 'Monto pagado' : 'Monto del cargo', t: 'number', req: true, ayuda: esPago ? null : 'Suma a lo que debe. Para descontar, registra un pago.' },
+      { n: 'monto', e: esPago ? 'Monto pagado' : 'Monto del cargo', t: 'number', req: true, min: 0.01, max: 100000, ayuda: esPago ? null : 'Suma a lo que debe. Para descontar, registra un pago.' },
       { n: 'fecha', e: 'Fecha', t: 'date', req: true },
       esPago && { n: 'forma_pago', e: 'Forma de pago', t: 'select', ops: [['', '—'], ['transferencia', 'Transferencia'], ['efectivo', 'Efectivo'], ['otro', 'Otro']] },
       { n: 'nota', e: 'Nota' },
     ].filter(Boolean), { fecha: L.hoy() });
     if (!v) return;
-    if (v.monto < 0) throw new Error('El monto debe ser positivo.');
     await crea('movimientos', { alumno_id: a.id, tipo, ...v });
     await anota(esPago ? 'Pago registrado' : 'Ajuste registrado', { alumno: a.nombre, monto: v.monto });
     avisa('Guardado');
@@ -567,7 +620,8 @@ const nuevaSerie = accion(async () => {
     ...camposHorario(true),
     { n: 'hasta', e: 'Hasta (opcional)', t: 'date', ayuda: 'Vacío = sin fecha final.' },
     { n: 'materia', e: 'Materia o tema' },
-  ], { ancla: L.hoy(), hora: '17:00', duracion_h: '1', intervalo: '1' }, 'Crear serie');
+  ], { ancla: L.hoy(), hora: '17:00', duracion_h: '1', intervalo: '1' }, 'Crear serie',
+    (x) => L.revisaHorario(x.hora, x.duracion_h) || (x.hasta && x.hasta < x.ancla ? 'La fecha «hasta» no puede ser anterior a la primera clase.' : null));
   if (!v) return;
   const s = await crea('series', { ...numerosSerie(v), estado: 'activa' });
   await extiendeSeries();
@@ -596,9 +650,9 @@ const cambiaAsesor = accion(async (s) => {
     { n: 'desde', e: 'Desde', t: 'date', req: true },
     { n: 'hasta', e: 'Hasta (solo suplente temporal)', t: 'date' },
     { n: 'nota', e: 'Motivo' },
-  ], { tipo: 'indefinida', desde: L.hoy() }, 'Aplicar');
+  ], { tipo: 'indefinida', desde: L.hoy() }, 'Aplicar',
+    (x) => (x.tipo === 'temporal' && (!x.hasta || x.hasta < x.desde) ? 'Para un suplente temporal indica la fecha «hasta», igual o posterior a «desde».' : null));
   if (!v) return;
-  if (v.tipo === 'temporal' && (!v.hasta || v.hasta < v.desde)) throw new Error('Para un suplente temporal indica la fecha «hasta».');
   if (v.tipo === 'indefinida') v.hasta = null;
   await crea('suplencias', { serie_id: s.id, profe_anterior_id: s.profe_id, ...v });
   const afectadas = programadasDesde(s.id, v.desde, v.hasta);
@@ -618,7 +672,7 @@ const cambiaHorario = accion(async (s) => {
   const pausa = E.serie_pausas.find((p) => p.serie_id === s.id && !p.cerrada);
   const v = await formulario(pausa ? 'Reanudar serie' : 'Cambiar horario de la serie', camposHorario(true),
     { ancla: L.hoy(), hora: s.hora, duracion_h: String(s.duracion_h), intervalo: String(s.intervalo), profe_id: s.profe_id || '' },
-    pausa ? 'Reanudar' : 'Cambiar horario');
+    pausa ? 'Reanudar' : 'Cambiar horario', validaClase);
   if (!v) return;
   const nuevo = numerosSerie(v);
   const viejas = programadasDesde(s.id, nuevo.ancla);
@@ -644,9 +698,8 @@ const pausaSerie = accion(async (s) => {
   const v = await formulario(`Pausar · ${nombre('alumnos', s.alumno_id)}`, [
     { n: 'desde', e: 'Pausar desde', t: 'date', req: true },
     { n: 'hasta', e: 'Hasta (opcional)', t: 'date', ayuda: 'Con fecha: se retoma sola al día siguiente. Vacío: queda en pausa hasta que tú la reanudes.' },
-  ], { desde: L.hoy() }, 'Pausar');
+  ], { desde: L.hoy() }, 'Pausar', (x) => (x.hasta && x.hasta < x.desde ? 'La fecha «hasta» debe ser igual o posterior a «desde».' : null));
   if (!v) return;
-  if (v.hasta && v.hasta < v.desde) throw new Error('La fecha «hasta» debe ser posterior a «desde».');
   const recorrer = L.clasesARecorrer(E.clases.filter((c) => c.serie_id === s.id), v.desde, v.hasta);
   for (const c of recorrer) await cambia('clases', c.id, { estado: 'recorrida' });
   await crea('serie_pausas', { serie_id: s.id, ...v, reanudar_auto: !!v.hasta, recorridas: recorrer.length, cerrada: !!v.hasta });
@@ -705,9 +758,9 @@ function pintaSeries() {
 // ───────────── Vista: asesores ─────────────
 const editaProfe = accion(async (p) => {
   const v = await formulario(p ? 'Editar asesor' : 'Nuevo asesor', [
-    { n: 'nombre', e: 'Nombre', req: true }, { n: 'correo', e: 'Correo', t: 'email' },
+    { n: 'nombre', e: 'Nombre', req: true, min: 2 }, { n: 'correo', e: 'Correo', t: 'email' },
     { n: 'materias', e: 'Materias y niveles' },
-    { n: 'tarifa_hora', e: 'Pago por hora', t: 'number', ayuda: 'Lo que Verne le paga por hora dada. Vacío si no aplica.' },
+    { n: 'tarifa_hora', e: 'Pago por hora', t: 'number', min: 0, max: 2000, ayuda: 'Lo que Verne le paga por hora dada. Vacío si no aplica.' },
     { n: 'color', e: 'Color en el calendario', t: 'color' },
     { n: 'activo', e: 'Activo (desmarca para darlo de baja)', t: 'check' },
   ], p || { activo: true, color: '#4e6e7c' });
@@ -743,7 +796,7 @@ function pintaCuentas() {
 
   const pagaProfe = accion(async (p, hrs, debe) => {
     const v = await formulario(`Registrar pago a ${p.nombre}`, [
-      { n: 'monto', e: 'Monto pagado', t: 'number', req: true }, { n: 'fecha_pago', e: 'Fecha del pago', t: 'date', req: true }, { n: 'nota', e: 'Nota' },
+      { n: 'monto', e: 'Monto pagado', t: 'number', req: true, min: 0.01, max: 100000 }, { n: 'fecha_pago', e: 'Fecha del pago', t: 'date', req: true }, { n: 'nota', e: 'Nota' },
     ], { monto: debe, fecha_pago: L.hoy() }, 'Registrar pago');
     if (!v) return;
     await crea('pagos_profes', { profe_id: p.id, desde: periodo.desde, hasta: periodo.hasta, horas: hrs, ...v });
