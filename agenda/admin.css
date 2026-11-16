@@ -105,3 +105,5 @@ body.ocupado, body.ocupado button { cursor: progress; }
 p.error { background: var(--alerta-clara); color: var(--alerta); font-weight: 700; padding: 0.6rem 0.75rem; border-radius: 8px; }
 [aria-invalid="true"] { border-color: var(--alerta); outline: 2px solid var(--alerta); outline-offset: 1px; }
 small.gris { color: var(--suave); font-weight: 500; }
+dialog:has(table) { width: min(96vw, 680px); }
+#ficha-alumno { scroll-margin-top: 5rem; }
