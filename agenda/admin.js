@@ -33,8 +33,12 @@ function avisa(texto, error = false) {
 }
 
 /** Envuelve una acción: muestra el error en vez de fallar en silencio y vuelve a pintar. */
+let ocupado = false;
 const accion = (fn) => async (...args) => {
+  if (ocupado) return;              // evita que un doble clic repita la acción (p. ej. crear dos series en Google)
+  ocupado = true; document.body.classList.add('ocupado');
   try { await fn(...args); } catch (e) { console.error(e); avisa(e.message || 'Algo salió mal', true); }
+  finally { ocupado = false; document.body.classList.remove('ocupado'); }
   pinta();
 };
 
@@ -76,6 +80,7 @@ async function sincroniza(c) {
   if (!G.conectado) return null;
   if (c.serie_id && !c.google_event_id && !por('series', c.serie_id)?.google_event_id) return null;   // serie sin enlazar
   try {
+    avisa('Actualizando Google Calendar…');
     const r = await api.funcion('gcal', { accion: 'sincronizar_clase', clase_id: c.id });
     if ('evento' in r) Object.assign(c, { google_event_id: r.evento, meet: r.meet });
     return r;
@@ -88,6 +93,7 @@ async function sincroniza(c) {
 async function sincronizaSerie(s, crear = false) {
   if (!G.conectado || (!s.google_event_id && !crear)) return null;
   try {
+    avisa('Actualizando Google Calendar…');
     const r = await api.funcion('gcal', { accion: 'sincronizar_serie', serie_id: s.id, crear });
     if ('evento' in r) Object.assign(s, { google_event_id: r.evento, meet: r.meet, google_firma: r.firma ?? null });
     return r;

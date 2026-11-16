@@ -100,3 +100,5 @@ input[type="color"] { padding: 0.15rem; height: 2.4rem; }
 .fila { display: flex; gap: 0.75rem; align-items: end; flex-wrap: wrap; }
 .fila label { flex: 0 1 180px; }
 .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; align-items: start; }
+
+body.ocupado, body.ocupado button { cursor: progress; }
