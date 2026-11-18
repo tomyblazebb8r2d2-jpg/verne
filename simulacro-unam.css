@@ -1,0 +1,38 @@
+/* Simulacro tipo UNAM: se apoya en estilos.css y diagnostico.css; aquí solo lo propio. */
+.m { font-family: var(--mate); font-size: 1.08em; white-space: nowrap; }
+.sim-grafica { display: flex; justify-content: center; }
+.sim-grafica svg, #r-dona svg { max-width: 100%; height: auto; }
+.sim-info { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.2rem; margin-top: 3rem; }
+.sim-info > div { background: var(--papel-claro); border: 1px solid var(--linea); border-radius: 18px; padding: 1.4rem; }
+.sim-info h2 { font-size: 1.25rem; }
+.sim-consejos .temas { margin-top: 1rem; }
+
+.examen__seccion { font-size: 0.9rem; font-weight: 700; color: var(--suave); margin-left: 0.4rem; }
+.examen__reloj { font-size: 1.15rem; background: var(--papel-claro); border: 1px solid var(--linea); border-radius: 12px; padding: 0.35rem 0.8rem; }
+.examen__reloj.is-poco { color: #fff; background: #c45a4a; border-color: #c45a4a; }
+.texto p + p { margin-top: 0.7rem; }
+.figura svg { max-width: 100%; height: auto; }
+
+.mapa__secciones { display: grid; gap: 1rem; margin: 1rem 0; }
+.mapa__titulo { font-weight: 800; font-size: 0.95rem; }
+.mapa__titulo span { color: var(--suave); font-weight: 700; margin-left: 0.3rem; }
+.mapa__nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr)); gap: 0.4rem; margin-top: 0.4rem; }
+
+.sim-res__cabeza { display: grid; grid-template-columns: 190px 1fr; gap: 1.8rem; align-items: center; }
+.sim-res__rejilla { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-top: 2.4rem; }
+.rev__as { font-size: 0.85rem; font-weight: 800; color: var(--suave); }
+.rev__q .figura { justify-content: flex-start; }
+.rev__q .figura svg { max-width: min(100%, 360px); }
+
+@media (max-width: 860px) {
+  .sim-info, .sim-res__rejilla { grid-template-columns: 1fr; }
+  .sim-res__cabeza { grid-template-columns: 1fr; gap: 0.6rem; }
+  #r-dona svg { width: 140px; }
+  .m { white-space: normal; }
+}
+
+@media print {
+  .cabecera, .pie, .acciones, #otra-vez, .nota { display: none !important; }
+  body { background: #fff; }
+  .res__panel, .revision li { break-inside: avoid; }
+}

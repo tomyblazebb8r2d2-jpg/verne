@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulacro tipo UNAM · Área 2 | Verne Study Club</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="theme-color" content="#20495B">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="estilos.css">
+<link rel="stylesheet" href="diagnostico.css">
+<link rel="stylesheet" href="simulacro-unam.css">
+<script src="simulacro-unam-a2-7f3k9q.datos.js" defer></script>
+<script src="simulacro-unam.js" defer></script>
+</head>
+<body class="diag">
+<header class="cabecera">
+  <div class="envoltura cabecera__fila">
+    <a class="cabecera__logo" href="./">{{LOGO_H}}<span class="sr">Verne Study Club, inicio</span></a>
+    <nav class="menu" aria-label="Secciones">
+      <a href="./">Inicio</a>
+      <a href="curso.html">Curso 2027</a>
+      <a href="./#servicios">Regularización</a>
+    </nav>
+    <a class="boton boton--chico" href="{{WA}}" target="_blank" rel="noopener">{{I:wa}}<span>WhatsApp</span></a>
+  </div>
+</header>
+
+<main class="envoltura diag__main">
+
+  <!-- Inicio -->
+  <section id="inicio" aria-labelledby="t-inicio">
+    <div class="inicio">
+      <div class="inicio__texto">
+        <p class="pastilla">Simulacro personal · Área 2</p>
+        <h1 id="t-inicio">Simulacro tipo examen UNAM</h1>
+        <p class="inicio__intro">Licenciatura, Área 2: Ciencias Biológicas, Químicas y de la Salud. Mismo número de preguntas, mismas materias y mismo tiempo que el examen de selección.</p>
+        <ul class="datos">
+          <li>{{I:check}}120 preguntas de opción múltiple, 4 opciones cada una</li>
+          <li>{{I:reloj}}3 horas, como el examen real</li>
+          <li>{{I:pantalla}}Tu avance se guarda en este dispositivo: si cierras la página, el reloj se detiene</li>
+          <li>{{I:lapiz}}Ten a la mano hojas y lápiz; sin calculadora</li>
+        </ul>
+      </div>
+      <div class="inicio__caja">
+        <div id="continuar" class="continuar" hidden>
+          <p>Tienes un simulacro sin terminar de <strong id="continuar-nombre"></strong> (quedan <span id="continuar-tiempo"></span>).</p>
+          <button id="btn-continuar" class="boton" type="button">Continuar donde me quedé</button>
+          <p class="continuar__o">o empieza uno nuevo:</p>
+        </div>
+        <form id="form-inicio">
+          <label for="nombre">Tu nombre</label>
+          <input id="nombre" name="nombre" type="text" autocomplete="name" placeholder="Escribe tu nombre" required maxlength="60">
+          <button class="boton boton--menta" type="submit">Comenzar simulacro</button>
+        </form>
+        <p class="nota">Tus respuestas no se envían a ningún lado. Al terminar, mándale tu resultado a Verne por WhatsApp para revisarlo juntos.</p>
+      </div>
+    </div>
+    <div class="sim-info">
+      <div>
+        <h2>Cómo se reparten las 120 preguntas</h2>
+        <p class="nota">En azul petróleo, las materias que más pesan para tu área.</p>
+        <div id="i-distribucion" class="sim-grafica"></div>
+      </div>
+      <div class="sim-consejos">
+        <h2>Antes de empezar</h2>
+        <ul class="temas">
+          <li><strong>Busca un lugar tranquilo</strong> y reserva 3 horas seguidas, como el día del examen.</li>
+          <li><strong>No te atores:</strong> si una pregunta te cuesta, márcala mentalmente, sigue y regresa con «Ver todas las preguntas».</li>
+          <li><strong>Contesta todo:</strong> en la UNAM las respuestas incorrectas no restan.</li>
+          <li><strong>Calcula tu ritmo:</strong> son 90 segundos por pregunta en promedio.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Examen -->
+  <section id="examen" hidden aria-live="polite">
+    <div class="examen__barra">
+      <div>
+        <p id="num" class="examen__num"></p>
+        <p><span id="asig" class="examen__asig"></span> <span id="seccion" class="examen__seccion"></span></p>
+      </div>
+      <div id="reloj" class="examen__reloj" title="Tiempo restante">{{I:reloj}}<span id="tiempo">3:00:00</span></div>
+    </div>
+    <div class="progreso" aria-hidden="true"><span id="barra"></span></div>
+    <p id="contestadas" class="examen__contestadas"></p>
+
+    <article class="tarjeta">
+      <details id="texto" class="texto" open hidden>
+        <summary>Lee el texto</summary>
+        <div></div>
+      </details>
+      <div id="pregunta" class="tarjeta__pregunta"></div>
+      <div id="opciones" class="opciones" role="radiogroup" aria-label="Opciones de respuesta"></div>
+    </article>
+
+    <div class="examen__nav">
+      <button id="anterior" class="boton boton--claro" type="button">Anterior</button>
+      <button id="siguiente" class="boton" type="button">Siguiente</button>
+    </div>
+
+    <details id="mapa" class="mapa">
+      <summary>Ver todas las preguntas</summary>
+      <div id="mapa-rejilla" class="mapa__secciones"></div>
+      <button id="btn-terminar" class="boton boton--claro" type="button">Terminar y ver resultados</button>
+    </details>
+    <p class="nota nota--centro">Atajos: teclas A, B, C y D para responder; flechas para moverte.</p>
+  </section>
+
+  <!-- Resultado -->
+  <section id="resultado" hidden aria-labelledby="t-res">
+    <div class="sim-res__cabeza">
+      <div id="r-dona"></div>
+      <div>
+        <p class="pastilla">Resultado de <span id="r-nombre"></span></p>
+        <h1 id="t-res" class="res__total"><span id="r-total"></span> <small id="r-de"></small></h1>
+        <p id="r-pct" class="res__pct"></p>
+        <div class="acciones">
+          <a id="r-whatsapp" class="boton boton--menta" href="#" target="_blank" rel="noopener">{{I:wa}}<span>Enviar mi resultado a Verne</span></a>
+          <button id="imprimir" class="boton boton--claro" type="button">Guardar en PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sim-res__rejilla">
+      <div class="res__panel">
+        <h2>Aciertos por materia</h2>
+        <div id="r-barras" class="sim-grafica"></div>
+      </div>
+      <div class="res__panel">
+        <h2>Tu perfil</h2>
+        <div id="r-radar" class="sim-grafica"></div>
+      </div>
+      <div class="res__panel">
+        <h2>Tiempo por materia</h2>
+        <div id="r-tiempo" class="sim-grafica"></div>
+      </div>
+      <div class="res__panel">
+        <h2>Temas a reforzar</h2>
+        <ul id="r-temas" class="temas"></ul>
+      </div>
+    </div>
+
+    <details class="revision">
+      <summary>Revisar todas mis respuestas con explicación</summary>
+      <ol id="r-revision"></ol>
+    </details>
+    <p class="nota nota--centro"><button id="otra-vez" class="enlace" type="button">Borrar este resultado y volver a empezar</button></p>
+  </section>
+</main>
+
+<footer class="pie">
+  <div class="envoltura pie__fila">
+    <div>
+      <p class="pie__llamado">Reserva tu lugar</p>
+      <a class="pie__telefono" href="{{WA}}" target="_blank" rel="noopener">55 8409 1167</a>
+    </div>
+    <div class="pie__marca">{{LOGO_H}}</div>
+  </div>
+  <div class="envoltura pie__legal">
+    <p>Simulacro de práctica elaborado por Verne Study Club con reactivos originales y los temas del examen de selección de licenciatura de la UNAM. No es un examen oficial ni usa reactivos reales.</p>
+    <p>© 2026 Verne Study Club</p>
+  </div>
+</footer>
+</body>
+</html>

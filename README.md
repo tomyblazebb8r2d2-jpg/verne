@@ -9,6 +9,7 @@ https://tomyblazebb8r2d2-jpg.github.io/verne/
 | Curso de Ingreso a Prepa 2027 | `curso.plantilla.html` | `curso.html` |
 | Diagnóstico UNAM–IPN (80 preguntas) | `diagnostico.plantilla.html` + `diagnostico-preguntas.js` + `diagnostico.js` | `diagnostico.html` |
 | Diagnóstico de álgebra (prepa) | — | `diagnostico-algebra.html` |
+| Simulacro tipo UNAM, Área 2 (120 preguntas, 3 h). **Sin enlace en el menú: se comparte solo por link** | `simulacro-unam.plantilla.html` + `simulacro-unam.js` | `simulacro-unam-a2-7f3k9q.html` |
 
 Para cambiar textos: edita la plantilla y corre `python3 generar.py` (incrusta logo, íconos y enlaces de WhatsApp).
 Las preguntas del diagnóstico están en `diagnostico-preguntas.js` (la respuesta correcta es siempre la primera opción;
@@ -18,3 +19,6 @@ el examen las revuelve).
 - `assets/`: logo original vectorizado (animado y horizontal), avatar, favicon, imagen para redes (`og.png`).
 - `fonts/`: Nunito (licencia SIL OFL, ver `fonts/OFL.txt`).
 - `construir_logo.py`: regenera los SVG del logo desde `marca/verne/original` del motor de videos.
+
+El banco del simulacro UNAM NO está en este repo: vive en `~/Verne/operaciones/simulacros/unam-area2/banco.mjs` (privado,
+con respuestas) y `node construir.mjs` lo publica codificado en `simulacro-unam-a2-7f3k9q.datos.js`.

@@ -43,7 +43,9 @@ logo_h = logo_h.replace(' fill="#2F4047"', "", 1)
 logo_anim = (AQUI / "assets/logo-animado.svg").read_text()
 
 PAGINAS = {"plantilla.html": "index.html", "curso.plantilla.html": "curso.html",
-           "diagnostico.plantilla.html": "diagnostico.html"}
+           "diagnostico.plantilla.html": "diagnostico.html",
+           # Simulacro personal: página sin enlace en el menú (se comparte solo por link).
+           "simulacro-unam.plantilla.html": "simulacro-unam-a2-7f3k9q.html"}
 for origen, destino in PAGINAS.items():
     html = (AQUI / origen).read_text(encoding="utf-8")
     html = html.replace("{{LOGO_H}}", logo_h).replace("{{LOGO_ANIM}}", logo_anim)
